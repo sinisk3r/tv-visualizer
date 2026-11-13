@@ -12,6 +12,7 @@ import android.os.Looper;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.WindowInsets;
 import android.view.WindowInsetsController;
 import android.view.WindowManager;
@@ -47,7 +48,6 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
         super.onCreate(state);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         setContentView(R.layout.activity_main);
-        glView = findViewById(R.id.gl);
         overlay = findViewById(R.id.overlay);
         title = findViewById(R.id.title);
         subtitle = findViewById(R.id.subtitle);
@@ -55,19 +55,33 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
         prefs = getSharedPreferences("state", MODE_PRIVATE);
         settings = new Settings(this);
 
-        PresetLibrary library;
-        try {
-            library = new PresetLibrary(this);
-        } catch (Exception e) {
-            Log.e(TAG, "preset unpack failed", e);
-            onError("Could not unpack presets: " + e.getMessage());
-            return;
+        // Finding ~10,000 preset files takes 1-2 s on TV storage: do it off the main thread, then start drawing.
+        new Thread(() -> {
+            try {
+                PresetLibrary library = new PresetLibrary(this);
+                ui.post(() -> startVisuals(library));
+            } catch (Exception e) {
+                Log.e(TAG, "preset unpack failed", e);
+                onError("Could not unpack presets: " + e.getMessage());
+            }
+        }, "preset-scan").start();
+
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, REQ_AUDIO);
         }
+    }
+
+    private void startVisuals(PresetLibrary library) {
+        if (isDestroyed()) return;
         renderer = new VizRenderer(library, settings, library.textureSearchPath(this), this,
                 prefs.getString("category", PresetLibrary.ALL),
                 prefs.getString("preset", null),
                 prefs.getBoolean("locked", false));
+        menu = new MenuPanel(this, settings, library, this);
 
+        glView = new GLSurfaceView(this);
+        glView.setFocusable(true);
+        glView.setFocusableInTouchMode(true);
         glView.setEGLContextClientVersion(3);
         glView.setPreserveEGLContextOnPause(true);
         // Rendered below screen size and scaled up by the display hardware: MilkDrop is soft anyway,
@@ -80,16 +94,19 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
             menu.open();
             return true;
         });
-        menu = new MenuPanel(this, settings, library, this);
-
-        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, REQ_AUDIO);
-        }
+        ViewGroup stage = findViewById(R.id.stage);
+        stage.addView(glView, 0, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT));
+        glView.requestFocus();
+        if (isResumedNow) startAudio();
     }
+
+    private boolean isResumedNow;
 
     @Override
     protected void onResume() {
         super.onResume();
+        isResumedNow = true;
         hideSystemBars();
         if (glView != null) glView.onResume();
         startAudio();
@@ -97,6 +114,7 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
 
     @Override
     protected void onPause() {
+        isResumedNow = false;
         stopAudio();
         if (glView != null) glView.onPause();
         super.onPause();
@@ -104,7 +122,8 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
 
     @Override
     protected void onDestroy() {
-        if (glView != null && renderer != null) glView.queueEvent(renderer::release);
+        // No projectM teardown here: after recreate() the old GL thread could run it after the new screen has
+        // started and kill the new instance. Native.create() frees any previous instance instead.
         super.onDestroy();
     }
 
@@ -158,7 +177,7 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
         int keyCode = event.getKeyCode();
         if (menu.isOpen()) {
             if (keyCode == KeyEvent.KEYCODE_BACK || keyCode == KeyEvent.KEYCODE_MENU) {
-                if (event.getAction() == KeyEvent.ACTION_UP) {
+                if (event.getAction() == KeyEvent.ACTION_UP && (keyCode == KeyEvent.KEYCODE_MENU || !menu.back())) {
                     menu.close();
                     glView.requestFocus();
                 }
@@ -299,6 +318,33 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
     @Override
     public float level() {
         return renderer.level;
+    }
+
+    private volatile String packStatus;
+
+    @Override
+    public String packStatus() {
+        return packStatus;
+    }
+
+    @Override
+    public void downloadPack() {
+        if (PackDownloader.isRunning()) return;
+        packStatus = "Starting…";
+        menu.refresh();
+        PackDownloader.start(getApplicationContext(), (pct, error) -> ui.post(() -> {
+            if (pct >= 0) {
+                packStatus = "Downloading " + pct + "%";
+            } else if (error != null) {
+                packStatus = error;
+            } else {
+                packStatus = null;
+                // New presets on disk: restart so the library rescans them. Settings and hides are kept.
+                recreate();
+                return;
+            }
+            menu.refresh();
+        }));
     }
 
     @Override

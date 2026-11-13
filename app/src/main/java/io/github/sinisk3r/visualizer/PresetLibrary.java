@@ -11,12 +11,17 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 
 /**
- * Finds presets. Two sources, merged by category (top-level folder name):
+ * Finds presets, sorted two levels deep: style (top folder) and sub-style (the folder under it; "General" for
+ * presets directly in a style folder). Two sources, merged; a preset in both counts once (the user copy wins):
  * 1. The pack bundled in the APK (assets/presets, assets/textures), copied to internal storage on first run
  *    because projectM reads plain files.
  * 2. An optional user folder, Android/data/<package>/files/presets, for anyone who wants the full pack
@@ -24,26 +29,30 @@ import java.util.TreeMap;
  */
 final class PresetLibrary {
     static final String ALL = "All";
+    static final String FAVOURITES = "★ Favourites";
+    static final String GENERAL = "General";
 
     final File textureDir;
     /** Category name to preset files; "All" first, then folders in name order. */
     final TreeMap<String, List<File>> byCategory = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
     final List<String> categories = new ArrayList<>();
+    /** Style to sub-style to presets. */
+    final Map<String, TreeMap<String, List<File>>> subs = new HashMap<>();
+    /** Every preset once, for Favourites. */
+    final List<File> all = new ArrayList<>();
+    private final Map<File, String> subOf = new HashMap<>();
+    private final Set<String> seen = new HashSet<>();
+    final boolean hasFullPack;
 
     PresetLibrary(Context ctx) throws IOException {
         File root = new File(ctx.getFilesDir(), "bundle");
         unpackIfNeeded(ctx, root);
         textureDir = new File(root, "textures");
 
-        List<File> all = new ArrayList<>();
+        File user = PackDownloader.userPresetDir(ctx);
+        hasFullPack = PackDownloader.isInstalled(ctx);
+        if (user != null) scan(user, all);
         scan(new File(root, "presets"), all);
-        File ext = ctx.getExternalFilesDir(null);
-        if (ext != null) {
-            File user = new File(ext, "presets");
-            if (!user.isDirectory()) //noinspection ResultOfMethodCallIgnored
-                user.mkdirs();
-            scan(user, all);
-        }
         categories.add(ALL);
         categories.addAll(byCategory.keySet());
         byCategory.put(ALL, all);
@@ -68,16 +77,34 @@ final class PresetLibrary {
             if (top.isDirectory()) {
                 // "! Transition" holds blend helpers, not presets to show.
                 if (top.getName().startsWith("!")) continue;
-                List<File> list = new ArrayList<>();
-                collect(top, list);
-                if (list.isEmpty()) continue;
-                byCategory.computeIfAbsent(top.getName(), k -> new ArrayList<>()).addAll(list);
-                all.addAll(list);
+                String style = top.getName();
+                File[] kids = top.listFiles();
+                if (kids == null) continue;
+                for (File k : kids) {
+                    List<File> list = new ArrayList<>();
+                    String sub = k.isDirectory() ? k.getName() : GENERAL;
+                    if (k.isDirectory()) collect(k, list);
+                    else if (isPreset(k)) list.add(k);
+                    for (File f : list) add(style, sub, f, all);
+                }
             } else if (isPreset(top)) {
-                byCategory.computeIfAbsent("Other", k -> new ArrayList<>()).add(top);
-                all.add(top);
+                add("Other", GENERAL, top, all);
             }
         }
+    }
+
+    private void add(String style, String sub, File f, List<File> all) {
+        if (!seen.add(f.getName())) return;  // already found in an earlier source
+        byCategory.computeIfAbsent(style, k -> new ArrayList<>()).add(f);
+        subs.computeIfAbsent(style, k -> new TreeMap<>(String.CASE_INSENSITIVE_ORDER))
+                .computeIfAbsent(sub, k -> new ArrayList<>()).add(f);
+        subOf.put(f, sub);
+        all.add(f);
+    }
+
+    String subStyleOf(File f) {
+        String s = subOf.get(f);
+        return s == null ? GENERAL : s;
     }
 
     private static void collect(File dir, List<File> out) {

@@ -26,7 +26,7 @@ for cat in sorted(p for p in SRC.iterdir() if p.is_dir() and not p.name.startswi
     files = sorted(f for f in cat.rglob("*.milk") if f.name not in skip)
     pick = rng.sample(files, min(PER_CATEGORY, len(files)))
     for f in pick:
-        dest = OUT / "presets" / cat.name / f.name
+        dest = OUT / "presets" / f.relative_to(SRC)  # keeps Style/Sub-style/
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(f, dest)
     total += len(pick)

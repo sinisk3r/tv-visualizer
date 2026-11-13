@@ -9,6 +9,8 @@
     <!-- android.media.audiofx.Visualizer reads the device's own output mix (not the microphone) and needs
          both of these. The audio is only used to draw frames; it is never recorded, stored or sent. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- Only for the optional "Get all presets" download from GitHub. -->
+    <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
 
     <application

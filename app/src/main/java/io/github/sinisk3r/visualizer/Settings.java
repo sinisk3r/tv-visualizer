@@ -27,7 +27,8 @@ final class Settings {
     /** Auto picture: preset file name to the height it last ran smoothly at on this TV. */
     private final SharedPreferences learned;
     private volatile Set<String> hidden;          // preset file names
-    private volatile Set<String> disabledStyles;  // category (folder) names
+    private volatile Set<String> disabledStyles;  // style names, and "Style/Sub-style" keys
+    private volatile Set<String> favourites;      // preset file names
 
     Settings(Context ctx) {
         prefs = ctx.getSharedPreferences("settings", Context.MODE_PRIVATE);
@@ -38,6 +39,8 @@ final class Settings {
         hidden = Collections.unmodifiableSet(new HashSet<>(prefs.getStringSet("hidden", Collections.emptySet())));
         disabledStyles = Collections.unmodifiableSet(
                 new HashSet<>(prefs.getStringSet("disabledStyles", Collections.emptySet())));
+        favourites = Collections.unmodifiableSet(
+                new HashSet<>(prefs.getStringSet("favourites", Collections.emptySet())));
     }
 
     int durationSec() { return durationSec; }
@@ -103,6 +106,20 @@ final class Settings {
     boolean isHidden(String presetName) { return hidden.contains(presetName); }
     int hiddenCount() { return hidden.size(); }
     boolean isStyleOn(String style) { return !disabledStyles.contains(style); }
+    boolean isSubOn(String style, String sub) { return !disabledStyles.contains(style + "/" + sub); }
+    boolean isFavourite(String presetName) { return favourites.contains(presetName); }
+    int favouriteCount() { return favourites.size(); }
+
+    void setSub(String style, String sub, boolean on) {
+        setStyle(style + "/" + sub, on);
+    }
+
+    void setFavourite(String presetName, boolean on) {
+        Set<String> s = new HashSet<>(favourites);
+        if (on) s.add(presetName); else s.remove(presetName);
+        favourites = Collections.unmodifiableSet(s);
+        prefs.edit().putStringSet("favourites", s).apply();
+    }
 
     /** Steps through DURATIONS, clamped at both ends. */
     void stepDuration(int delta) {
@@ -119,6 +136,7 @@ final class Settings {
     }
 
     void hide(String presetName) {
+        if (favourites.contains(presetName)) setFavourite(presetName, false);
         Set<String> s = new HashSet<>(hidden);
         s.add(presetName);
         hidden = Collections.unmodifiableSet(s);

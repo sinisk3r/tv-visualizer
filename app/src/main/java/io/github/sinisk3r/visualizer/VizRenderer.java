@@ -85,7 +85,12 @@ final class VizRenderer implements GLSurfaceView.Renderer {
 
     private List<File> visible(String cat) {
         List<File> out = new ArrayList<>();
-        if (PresetLibrary.ALL.equals(cat)) {
+        if (PresetLibrary.FAVOURITES.equals(cat)) {
+            // Favourites play even from styles that are switched off: a star is a stronger choice.
+            for (File f : library.all) {
+                if (settings.isFavourite(f.getName()) && !settings.isHidden(f.getName())) out.add(f);
+            }
+        } else if (PresetLibrary.ALL.equals(cat)) {
             for (String c : library.categories) {
                 if (!c.equals(PresetLibrary.ALL) && settings.isStyleOn(c)) addVisible(c, out);
             }
@@ -98,13 +103,16 @@ final class VizRenderer implements GLSurfaceView.Renderer {
     private void addVisible(String cat, List<File> out) {
         List<File> list = library.byCategory.get(cat);
         if (list == null) return;
-        for (File f : list) if (!settings.isHidden(f.getName())) out.add(f);
+        for (File f : list) {
+            if (!settings.isHidden(f.getName()) && settings.isSubOn(cat, library.subStyleOf(f))) out.add(f);
+        }
     }
 
     /** Recomputes styles and order after a settings change; keeps `keepPath` first if it is still allowed. */
     private void rebuild(String keepPath) {
         List<String> cats = new ArrayList<>();
         cats.add(PresetLibrary.ALL);
+        if (!visible(PresetLibrary.FAVOURITES).isEmpty()) cats.add(PresetLibrary.FAVOURITES);
         for (String c : library.categories) {
             if (!c.equals(PresetLibrary.ALL) && settings.isStyleOn(c) && !visible(c).isEmpty()) cats.add(c);
         }

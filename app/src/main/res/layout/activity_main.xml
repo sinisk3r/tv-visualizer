@@ -4,12 +4,11 @@
     android:layout_height="match_parent"
     android:background="@android:color/black">
 
-    <android.opengl.GLSurfaceView
-        android:id="@+id/gl"
+    <!-- The GLSurfaceView is added here in code once the preset list is ready (MainActivity.startVisuals). -->
+    <FrameLayout
+        android:id="@+id/stage"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:focusable="true"
-        android:focusableInTouchMode="true" />
+        android:layout_height="match_parent" />
 
     <!-- Preset name, bottom left, inside the TV overscan-safe area (5%). Fades out after a few seconds. -->
     <LinearLayout

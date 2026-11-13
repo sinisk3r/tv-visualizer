@@ -11,8 +11,8 @@ android {
         applicationId 'io.github.sinisk3r.visualizer'
         minSdk 26
         targetSdk 34
-        versionCode 1
-        versionName '0.1'
+        versionCode 2
+        versionName '0.2'
         ndk {
             // The TCL G08 runs a 32-bit userspace. arm64 is here so the same APK runs on newer TVs.
             abiFilters 'armeabi-v7a', 'arm64-v8a'
