@@ -36,9 +36,8 @@ features, build and licences; this file covers how to work on it. Keep it under 
 - Preset scanning is slow on TV storage (~1-2 s for 10k files): keep it off the main thread.
 
 ## Art
-- Logo and menu art came from ChatGPT image generation through a logged-in browser. Keep requests few and
-  serial (one at a time, ~60 s apart, ~3 per batch, ask before more). Prefer deriving variants locally
-  (`tools/colour-logo.py`, `sips`) over new prompts. Record prompts in `art/prompts.md`.
+- Logo and menu art are AI-generated; prompts in `art/prompts.md`. Credit them only as "AI-generated".
+- Make variants locally (`tools/colour-logo.py`, `sips`) rather than generating new images.
 - The menu stays neutral grey; colour belongs to the visuals and the icon.
 
 ## Publishing

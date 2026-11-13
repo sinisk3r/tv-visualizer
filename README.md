@@ -57,9 +57,8 @@ Fixed 540p with a 32x24 mesh: 30-60 fps, typically ~45. At 720p / 48x32: 13-42 f
 run 12-22 fps (Auto drops them). RAM ~33 MB PSS. Logs: `adb logcat -s Visualizer` (fps every 10 s, auto steps).
 
 ## Licences
-- This app's code and art (`app/`, `tools/`, `art/`): MIT, see `LICENSE`. The logo and menu art were made with
-  ChatGPT image generation; prompts in `art/prompts.md`. The colour logo is the grey one recoloured by
-  `tools/colour-logo.py`.
+- This app's code and art (`app/`, `tools/`, `art/`): MIT, see `LICENSE`. The logo and menu art are
+  AI-generated (prompts in `art/prompts.md`); the colour logo is the grey one recoloured by `tools/colour-logo.py`.
 - projectM: LGPL-2.1, shipped as its own shared library (`libprojectM-4.so`) so it can be replaced.
 - Presets and textures: from projectM's preset and texture repos. MilkDrop presets were released freely without a
   formal licence; projectM treats them as public domain and removes any on the author's request. Preset authors are
