@@ -9,13 +9,16 @@ recorded or sent.
 | Key | Does |
 |---|---|
 | Left / Right | Previous / next preset |
-| Up / Down | Change style (Dancer, Drawing, Fractal, ...) or All |
+| Up / Down | Change style: All, ★ Favourites, Dancer, Drawing, Fractal, ... |
 | OK / Menu | Open the menu (Back closes) |
 | Info | Show the current preset name |
 | Touch | Tap = next, long-press = menu |
 
-Menu: Hold this preset (forever), Hide this preset, Time per preset (15 s to 5 min), Picture (Auto or a fixed
-480p/540p/720p/1080p), Switch on big beats, one switch per style, Unhide all, Re-test picture sizes.
+Menu (left side; Up/Down moves, OK toggles or opens, Left/Right changes a value, Back goes back):
+- Hold this preset (forever), ★ Favourite, Hide this preset
+- Time per preset (15 s to 5 min), Picture (Auto or a fixed 480p/540p/720p/1080p), Switch on big beats
+- Styles: each style opens a page with "Play this style" and one switch per sub-style
+- Presets: Get all 9,795 presets, Favourites, Unhide all, Re-test picture sizes
 
 Presets switch every 30 s, or on a big beat (hard cut). Presets that fail to compile on the GPU are skipped.
 
@@ -23,19 +26,24 @@ Presets switch every 30 s, or on a big beat (hard cut). Presets that fail to com
 - 400 bundled: 40 per style, picked with a fixed seed from
   [Cream of the Crop](https://github.com/projectM-visualizer/presets-cream-of-the-crop) (9,795 presets),
   plus the [MilkDrop texture pack](https://github.com/projectM-visualizer/presets-milkdrop-texture-pack).
-- More: put `.milk` files (in style folders) in `Android/data/io.github.sinisk3r.visualizer/files/presets/`,
-  e.g. `adb push third_party/presets-cream-of-the-crop/. /sdcard/Android/data/io.github.sinisk3r.visualizer/files/presets/`.
-  Extra textures go in `.../files/textures/`.
+- Full pack: menu > Presets > Get all 9,795 presets. Downloads a 33 MB zip from GitHub (pinned commit in
+  `PackDownloader.COMMIT`), unpacks ~156 MB of `.milk` files into the app's files folder, then restarts the app.
+- Sorted two levels deep: style (top folder) and sub-style (folder under it), e.g. Geometric > Cathedral.
+  10 styles, 183 sub-styles in the full pack.
+- Your own: put `.milk` files as `Style/Sub-style/name.milk` in
+  `Android/data/io.github.sinisk3r.visualizer/files/presets/` (adb push or a file manager). Extra textures go in
+  `.../files/textures/`. A preset found in two places counts once.
 
 ## Build
 ```sh
 git submodule update --init --recursive   # projectM v4.1.8
 tools/fetch-packs.sh                       # preset + texture packs (156 MB, not committed)
-tools/make-bundle.py 40                    # copies the bundled pack into app/src/main/assets
+tools/make-bundle.py 40                    # 40 per style into app/src/main/assets (keeps sub-style folders)
 ./gradlew assembleRelease                  # needs NDK 27.2.12479018, CMake 3.22.1, JDK 17
 adb install -r app/build/outputs/apk/release/app-release.apk
 ```
 Release builds are signed with the debug key; set up a real signing key before publishing.
+Bump `versionCode` whenever the bundled pack changes: the app re-unpacks it only on a new version.
 
 ## Picture: Auto
 Each preset renders below screen size and the display scales it up. In Auto (default) every preset learns its
@@ -50,7 +58,8 @@ run 12-22 fps (Auto drops them). RAM ~33 MB PSS. Logs: `adb logcat -s Visualizer
 
 ## Licences
 - This app's code and art (`app/`, `tools/`, `art/`): MIT, see `LICENSE`. The logo and menu art were made with
-  ChatGPT image generation; prompts in `art/prompts.md`.
+  ChatGPT image generation; prompts in `art/prompts.md`. The colour logo is the grey one recoloured by
+  `tools/colour-logo.py`.
 - projectM: LGPL-2.1, shipped as its own shared library (`libprojectM-4.so`) so it can be replaced.
 - Presets and textures: from projectM's preset and texture repos. MilkDrop presets were released freely without a
   formal licence; projectM treats them as public domain and removes any on the author's request. Preset authors are
