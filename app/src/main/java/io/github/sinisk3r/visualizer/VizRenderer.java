@@ -1,0 +1,319 @@
+package io.github.sinisk3r.visualizer;
+
+import android.media.audiofx.Visualizer;
+import android.opengl.GLSurfaceView;
+import android.os.SystemClock;
+import android.util.Log;
+
+import java.io.File;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+import javax.microedition.khronos.egl.EGLConfig;
+import javax.microedition.khronos.opengles.GL10;
+
+/**
+ * Owns projectM and the play order. Every method runs on the GL thread; the activity reaches it with
+ * GLSurfaceView.queueEvent.
+ */
+final class VizRenderer implements GLSurfaceView.Renderer {
+    private static final String TAG = "Visualizer";
+
+    // Auto picture. Frames are only counted once a preset is on its own: never during the blend from the
+    // previous preset (two presets render at once) or right after a load or resize (shader compile, new
+    // buffers), since those dips would wrongly mark a smooth preset as slow.
+    private static final long BLEND_MS = 3000;       // soft-cut length set in native.cpp
+    private static final long SETTLE_MS = 1500;      // after a load or resize
+    private static final long WINDOW_MS = 3000;      // one measurement
+    private static final float SLOW_FPS = 24f;       // below this looks choppy: step down
+    private static final float FAST_FPS = 55f;       // at or above this the GPU has room
+    private static final long PROBE_AFTER_MS = 10_000; // smooth this long at a lowered size: try one step up
+
+    interface Listener {
+        /** Called on the GL thread whenever the shown preset, style or hold changes. */
+        void onPresetShown(String category, File preset, boolean locked, boolean userAction);
+        void onError(String message);
+        /** Auto picture wants a different render height (GL thread; resize on the UI thread). */
+        void onWantHeight(int height);
+    }
+
+    private final PresetLibrary library;
+    private final Settings settings;
+    private final String textureDir;
+    private final Listener listener;
+
+    /** Set by the activity while it holds the audio capture; read every frame. */
+    volatile Visualizer audio;
+    private byte[] wave = new byte[0];
+
+    /** "All" plus every style that is on and has presets left. */
+    private List<String> categories = new ArrayList<>();
+    private String category;
+    private List<File> order = new ArrayList<>();
+    private int position = -1;
+    private boolean locked;
+    private boolean ready;
+
+    private long fpsStart;
+    private int fpsFrames;
+
+    /** Loudness 0..1 of the last audio frame, for the menu art to breathe with. */
+    volatile float level;
+
+    private int surfaceHeight;
+    private long measureFrom;   // uptime ms; frames before this are not counted
+    private long windowStart;
+    private int windowFrames;
+    private long smoothSince;   // start of an unbroken run of fast windows, 0 if none
+    /** Presets that already tried a step up this session, so a borderline one cannot flip back and forth. */
+    private final Set<String> probed = new HashSet<>();
+
+    VizRenderer(PresetLibrary library, Settings settings, String textureDir, Listener listener,
+                String startCategory, String startPreset, boolean startLocked) {
+        this.library = library;
+        this.settings = settings;
+        this.textureDir = textureDir;
+        this.listener = listener;
+        category = startCategory;
+        rebuild(startPreset);
+        locked = startLocked && currentPreset() != null && currentPreset().getPath().equals(startPreset);
+    }
+
+    // --- play order ---
+
+    private List<File> visible(String cat) {
+        List<File> out = new ArrayList<>();
+        if (PresetLibrary.ALL.equals(cat)) {
+            for (String c : library.categories) {
+                if (!c.equals(PresetLibrary.ALL) && settings.isStyleOn(c)) addVisible(c, out);
+            }
+        } else {
+            addVisible(cat, out);
+        }
+        return out;
+    }
+
+    private void addVisible(String cat, List<File> out) {
+        List<File> list = library.byCategory.get(cat);
+        if (list == null) return;
+        for (File f : list) if (!settings.isHidden(f.getName())) out.add(f);
+    }
+
+    /** Recomputes styles and order after a settings change; keeps `keepPath` first if it is still allowed. */
+    private void rebuild(String keepPath) {
+        List<String> cats = new ArrayList<>();
+        cats.add(PresetLibrary.ALL);
+        for (String c : library.categories) {
+            if (!c.equals(PresetLibrary.ALL) && settings.isStyleOn(c) && !visible(c).isEmpty()) cats.add(c);
+        }
+        categories = cats;
+        if (!categories.contains(category)) category = PresetLibrary.ALL;
+        order = PresetLibrary.shuffled(visible(category));
+        position = -1;
+        if (keepPath != null) {
+            for (int i = 0; i < order.size(); i++) {
+                if (order.get(i).getPath().equals(keepPath)) {
+                    order.add(0, order.remove(i));
+                    position = 0;
+                    break;
+                }
+            }
+        }
+    }
+
+    String category() {
+        return category;
+    }
+
+    File currentPreset() {
+        return position >= 0 && position < order.size() ? order.get(position) : null;
+    }
+
+    // --- GL ---
+
+    @Override
+    public void onSurfaceCreated(GL10 unused, EGLConfig config) {
+        // A new GL context means projectM's GL objects are gone: start a fresh instance.
+        ready = false;
+    }
+
+    @Override
+    public void onSurfaceChanged(GL10 unused, int width, int height) {
+        surfaceHeight = height;
+        settle(SETTLE_MS);
+        if (ready) {
+            Native.resize(width, height);
+            return;
+        }
+        if (!Native.create(width, height, textureDir, settings.durationSec())) {
+            listener.onError("projectM could not start (needs OpenGL ES 3).");
+            return;
+        }
+        ready = true;
+        Native.setTiming(settings.durationSec(), settings.beatCuts());
+        Native.setLocked(locked);
+        File current = currentPreset();
+        if (current != null) show(current, false, false);
+        else step(1, false, false);
+    }
+
+    @Override
+    public void onDrawFrame(GL10 unused) {
+        if (!ready) return;
+        Visualizer v = audio;
+        if (v != null) {
+            try {
+                int size = v.getCaptureSize();
+                if (wave.length != size) wave = new byte[size];
+                if (v.getWaveForm(wave) == Visualizer.SUCCESS) {
+                    Native.addPcm(wave, size);
+                    level = loudness(wave, size);
+                }
+            } catch (IllegalStateException e) {
+                // The activity released it between frames.
+            }
+        }
+        int ev = Native.render();
+        if ((ev & Native.EV_FAILED) != 0) {
+            // Drop presets that do not compile on this GPU, so they never come back this session.
+            File bad = currentPreset();
+            if (bad != null && order.size() > 1) {
+                Log.w(TAG, "skipping " + bad.getName());
+                order.remove(position);
+                position--;
+                step(1, false, false);
+            }
+        } else if ((ev & Native.EV_SWITCH) != 0 && !locked) {
+            step(1, (ev & Native.EV_HARD_CUT) == 0, false);
+        }
+        countFps();
+        autoPicture();
+    }
+
+    private static float loudness(byte[] w, int n) {
+        long sum = 0;
+        for (int i = 0; i < n; i += 4) {
+            int d = (w[i] & 0xFF) - 128;
+            sum += (long) d * d;
+        }
+        return Math.min(1f, (float) Math.sqrt(sum / (double) Math.max(1, n / 4)) / 64f);
+    }
+
+    private void settle(long ms) {
+        measureFrom = SystemClock.uptimeMillis() + ms;
+        windowStart = 0;
+        smoothSince = 0;
+    }
+
+    private void autoPicture() {
+        if (!settings.isAuto()) return;
+        File p = currentPreset();
+        if (p == null || surfaceHeight == 0) return;
+        long now = SystemClock.uptimeMillis();
+        if (now < measureFrom) return;
+        if (windowStart == 0) {
+            windowStart = now;
+            windowFrames = 0;
+            return;
+        }
+        windowFrames++;
+        if (now - windowStart < WINDOW_MS) return;
+        float fps = windowFrames * 1000f / (now - windowStart);
+        windowStart = now;
+        windowFrames = 0;
+        String name = p.getName();
+        if (fps < SLOW_FPS && surfaceHeight > Settings.HEIGHTS[0]) {
+            int down = Settings.lower(surfaceHeight);
+            Log.i(TAG, String.format("auto: %.0f fps at %dp, down to %dp: %s", fps, surfaceHeight, down, name));
+            settings.learn(name, down);
+            want(down);
+        } else if (fps >= FAST_FPS && surfaceHeight < 1080 && !probed.contains(name)) {
+            if (smoothSince == 0) smoothSince = now;
+            if (now - smoothSince >= PROBE_AFTER_MS) {
+                int up = Settings.higher(surfaceHeight);
+                Log.i(TAG, String.format("auto: %.0f fps at %dp, trying %dp: %s", fps, surfaceHeight, up, name));
+                probed.add(name);
+                settings.learn(name, up);
+                want(up);
+            }
+        } else {
+            smoothSince = 0;
+        }
+    }
+
+    private void want(int height) {
+        settle(SETTLE_MS);
+        if (height != surfaceHeight) listener.onWantHeight(height);
+    }
+
+    private void countFps() {
+        long now = SystemClock.uptimeMillis();
+        if (fpsStart == 0) fpsStart = now;
+        fpsFrames++;
+        if (now - fpsStart >= 10_000) {
+            File p = currentPreset();
+            Log.i(TAG, String.format("fps %.1f  %s", fpsFrames * 1000f / (now - fpsStart),
+                    p == null ? "-" : p.getName()));
+            fpsStart = now;
+            fpsFrames = 0;
+        }
+    }
+
+    // --- actions (from the remote, via queueEvent) ---
+
+    /** Next (+1) or previous (-1) preset in the current style; wraps around. */
+    void step(int delta, boolean smooth, boolean userAction) {
+        if (order.isEmpty()) {
+            listener.onError("No presets left. Turn a style on or unhide presets in the OK menu.");
+            return;
+        }
+        position = Math.floorMod(position + delta, order.size());
+        show(order.get(position), smooth, userAction);
+    }
+
+    void changeCategory(int delta) {
+        int i = Math.max(0, categories.indexOf(category));
+        category = categories.get(Math.floorMod(i + delta, categories.size()));
+        order = PresetLibrary.shuffled(visible(category));
+        position = -1;
+        step(1, false, true);
+    }
+
+    void setLocked(boolean on) {
+        locked = on;
+        if (ready) Native.setLocked(on);
+        listener.onPresetShown(category, currentPreset(), locked, true);
+    }
+
+    /** After the menu changed settings: apply timing, re-filter, move on if the current preset is gone. */
+    void applySettings() {
+        if (ready) Native.setTiming(settings.durationSec(), settings.beatCuts());
+        File shown = currentPreset();
+        if (shown != null) {
+            want(settings.isAuto() ? settings.learnedHeight(shown.getName()) : settings.renderHeight());
+        }
+        File current = currentPreset();
+        rebuild(current == null ? null : current.getPath());
+        if (currentPreset() == null) {
+            locked = false;
+            if (ready) Native.setLocked(false);
+            step(1, false, true);
+        } else {
+            listener.onPresetShown(category, currentPreset(), locked, false);
+        }
+    }
+
+    private void show(File preset, boolean smooth, boolean userAction) {
+        if (ready) Native.loadPreset(preset.getPath(), smooth);
+        if (settings.isAuto()) want(settings.learnedHeight(preset.getName()));
+        settle(SETTLE_MS + (smooth ? BLEND_MS : 0));
+        listener.onPresetShown(category, preset, locked, userAction);
+    }
+
+    void release() {
+        if (ready) Native.destroy();
+        ready = false;
+    }
+}

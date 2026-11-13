@@ -1,0 +1,10 @@
+.gradle/
+build/
+app/.cxx/
+local.properties
+*.apk
+.DS_Store
+# Preset and texture packs are fetched by ./push-presets.sh, not committed (156 MB).
+third_party/presets-*/
+# Unused logo concepts (first round), kept locally only.
+art/icon-*.png

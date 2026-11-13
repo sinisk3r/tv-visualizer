@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Adaptive icon foreground: the DJ logo (art/logo-dj.png) filling the 72dp visible area of the 108dp canvas;
+     its figure sits inside the central ~66%, so masks do not cut the hand or headphones. -->
+<inset xmlns:android="http://schemas.android.com/apk/res/android" android:inset="18dp">
+    <bitmap android:src="@drawable/logo_dj" android:filter="true" android:gravity="fill" />
+</inset>
