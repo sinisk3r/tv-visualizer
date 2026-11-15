@@ -196,6 +196,12 @@ user picks "See song and album art" on the card, with an explainer first; never 
 on the left: art, title, artist, previous, larger play/pause, next, mute (mockup A2 screens 1m and 1p). The
 user also asked for "a 10 or 20 second preview if allowed": unclear what of; ask.
 
+Built on branch `music-card` (15-Nov-2026): `MusicCard` + `NowPlaying` + `MusicListener`, screens 1m and 1p.
+Up from any bar button lands on play/pause; Down goes to "See song and album art" (no access), then back to that
+button. Explainer once, then the row opens Settings directly. Demo songs have no media session: the card ignores
+them. Still to test on the TV: Spotify and YouTube Music keys and metadata, whether mute silences the visuals too
+(Visualizer session 0 may read after the volume), and whether the TV's notification-access list shows Visualizer.
+
 ```
 Read CLAUDE.md. Mock up first (mockup A2): a music strip in the bar (art, title, artist, previous/play/next) and
 in the now-playing tag. After the user agrees: media keys first (no permission), then optional notification
