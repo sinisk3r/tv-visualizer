@@ -272,6 +272,11 @@ Mockup done 15-Nov-2026: A2 screen 7 (published v10). Waiting on the user's yes.
   hardware (CPU and GPU are logged at start as `device ...` and in the projectM line).
 
 ## Done
+- 15-Nov-2026: music card rebuilt to layout 1s-E (user-approved): cover + app name on the left, title / artist ·
+  album and Previous/Next on the right, Spotify-style scrubber (thin track; thumb and halo only when focused;
+  times under the ends; OK pause/play; 10/30 s seeks with a time pill). No play/pause or mute buttons. Checked on
+  the TV with Spotify (look only). Open: without notification access the card cannot pause (the remote's play
+  key still can); ask the user whether to show a small play/pause button only then.
 - 15-Nov-2026: Featured (001) ships: 50 presets, the user's 19 TV favourites first, then the best Mac-scored picks.
   Grow it with `tools/update-featured.py` (reads favourites from the TV's start-up log, only ever adds; bump
   versionCode after). versionCode 5.
