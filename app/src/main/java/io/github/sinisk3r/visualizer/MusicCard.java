@@ -281,6 +281,12 @@ final class MusicCard {
         }
         if (focused == null) return false;
         if (isInside(focused, bar)) {
+            if (k == KeyEvent.KEYCODE_DPAD_LEFT || k == KeyEvent.KEYCODE_DPAD_RIGHT) {
+                // At the bar's ends Android's focus search can find a card row (it reaches past the bar's left
+                // end): only Up enters the card.
+                View n = focused.focusSearch(k == KeyEvent.KEYCODE_DPAD_LEFT ? View.FOCUS_LEFT : View.FOCUS_RIGHT);
+                return n != null && isInside(n, card);
+            }
             if (k != KeyEvent.KEYCODE_DPAD_UP) return false;
             returnTo = focused;
             play.requestFocus();
