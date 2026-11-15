@@ -12,3 +12,8 @@ already in. The submodule then shows as modified; that is expected. `git -C thir
   shapes go into the same triangle list as the fills, as 1-pixel-wide quads, so the draw order stays exact without
   a draw call per instance. Corners of semi-transparent borders can blend twice where two edge quads meet.
   On the TV at 480p: phlegmployant 12.1 to 28.1 fps, ants on acid 30.9 to 38.5. Candidate for upstream, after #1044.
+- `0003-render-to-caller-framebuffer.patch`: `projectm_opengl_render_frame_fbo()`, so projectM draws into the
+  app's own texture at any size (variable resolution). Backport of upstream commit `bd2b1ba9f` (June 2024).
+- `0004-keep-picture-on-resize.patch`: a size change keeps the picture (old textures copied, scaled, into the
+  new ones) instead of restarting every preset's feedback from black. Ours; worth offering upstream. Check:
+  `tools/mac-render/build/resize-check <textures> <preset>`.

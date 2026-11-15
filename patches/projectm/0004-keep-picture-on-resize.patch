@@ -1,0 +1,72 @@
+Keep the picture when the render size changes.
+
+Framebuffer::SetSize recreated every attachment texture empty, so a preset's feedback (trails, warps, echoes)
+started again from black on each resize. Now each colour texture's old content is copied into the new one,
+scaled with glBlitFramebuffer (linear). The app changes projectM's size in small steps while a preset plays
+(variable resolution), which made every step visible as a flash. Depth/stencil attachments are not copied.
+
+diff --git a/src/libprojectM/Renderer/Framebuffer.cpp b/src/libprojectM/Renderer/Framebuffer.cpp
+index 455cdae4b..270df1a08 100644
+--- a/src/libprojectM/Renderer/Framebuffer.cpp
++++ b/src/libprojectM/Renderer/Framebuffer.cpp
+@@ -1,5 +1,7 @@
+ #include "Framebuffer.hpp"
+ 
++#include <vector>
++
+ namespace libprojectM {
+ namespace Renderer {
+ 
+@@ -86,18 +88,51 @@ bool Framebuffer::SetSize(int width, int height)
+         return false;
+     }
+ 
++    const int oldWidth = m_width;
++    const int oldHeight = m_height;
+     m_width = width;
+     m_height = height;
+ 
++    // Keep the picture: copy each colour texture's old content into its new texture, scaled, so a preset's
++    // feedback (trails, warps) carries on across a size change instead of starting again from black.
++    GLuint copyFramebuffer = 0;
+     for (auto& attachments : m_attachments)
+     {
+-        Bind(attachments.first);
+         for (auto& texture : attachments.second)
+         {
++            const bool isColor = texture.first >= GL_COLOR_ATTACHMENT0 && texture.first <= GL_COLOR_ATTACHMENT15;
++            std::shared_ptr<class Texture> oldTexture;
++            if (isColor && oldWidth > 0 && oldHeight > 0)
++            {
++                oldTexture = texture.second->Texture();
++            }
++
+             texture.second->SetSize(width, height);
++            Bind(attachments.first);
+             glFramebufferTexture2D(GL_FRAMEBUFFER, texture.first, GL_TEXTURE_2D, texture.second->Texture()->TextureID(), 0);
++
++            if (oldTexture && oldTexture->TextureID() != 0 && oldTexture != texture.second->Texture())
++            {
++                if (copyFramebuffer == 0)
++                {
++                    glGenFramebuffers(1, &copyFramebuffer);
++                }
++                glBindFramebuffer(GL_READ_FRAMEBUFFER, copyFramebuffer);
++                glFramebufferTexture2D(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, oldTexture->TextureID(), 0);
++                glReadBuffer(GL_COLOR_ATTACHMENT0);
++                glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_framebufferIds.at(attachments.first));
++                std::vector<GLenum> drawBuffers(texture.first - GL_COLOR_ATTACHMENT0 + 1, GL_NONE);
++                drawBuffers.back() = texture.first;
++                glDrawBuffers(static_cast<GLsizei>(drawBuffers.size()), drawBuffers.data());
++                glBlitFramebuffer(0, 0, oldWidth, oldHeight, 0, 0, width, height, GL_COLOR_BUFFER_BIT, GL_LINEAR);
++                UpdateDrawBuffers(attachments.first);  // all colour attachments again, as before
++            }
+         }
+     }
++    if (copyFramebuffer != 0)
++    {
++        glDeleteFramebuffers(1, &copyFramebuffer);
++    }
+     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+ 
+     return true;
