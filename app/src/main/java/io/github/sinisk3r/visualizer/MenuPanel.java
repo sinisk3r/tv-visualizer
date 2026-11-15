@@ -233,6 +233,7 @@ final class MenuPanel {
         root.setVisibility(View.GONE);
         barTitle.setSelected(false);
         music.hide();
+        searchPanel.release();  // no microphone left open behind a closed menu
         if (zero != null) zero.closed();
         panel = NONE;
     }

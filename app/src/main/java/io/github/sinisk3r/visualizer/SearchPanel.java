@@ -157,7 +157,11 @@ final class SearchPanel {
         if (resultCode != Activity.RESULT_OK || data == null) return;
         ArrayList<String> said = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
         if (said == null || said.isEmpty()) return;
-        String q = SearchIndex.normalize(said.get(0));
+        heard(said.get(0));
+    }
+
+    private void heard(String words) {
+        String q = SearchIndex.normalize(words);
         query = q.length() > SearchIndex.MAX_QUERY ? q.substring(0, SearchIndex.MAX_QUERY) : q;
         if (padMode) setPadMode(false, mic);
         update();
@@ -531,7 +535,98 @@ final class SearchPanel {
         return i;
     }
 
+    // In-app listening (SpeechRecognizer bound to Google TV's speech service): the visuals keep running, unlike the
+    // voice-input screen, which pauses the app. Falls back to that screen when the service is missing or fails.
+    private android.speech.SpeechRecognizer recognizer;
+    private boolean listening;
+
     private void listen() {
+        if (listening) {
+            stopListening();
+            return;
+        }
+        android.content.ComponentName svc = new android.content.ComponentName(TV_VOICE,
+                "com.google.android.apps.tvsearch.voice.recognition.KatnissRecognitionService");
+        boolean hasSvc = false;
+        for (android.content.pm.ResolveInfo r : act.getPackageManager().queryIntentServices(
+                new Intent(android.speech.RecognitionService.SERVICE_INTERFACE), 0)) {
+            if (svc.getClassName().equals(r.serviceInfo.name)) hasSvc = true;
+        }
+        if (!hasSvc || act.checkSelfPermission(android.Manifest.permission.RECORD_AUDIO)
+                != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            listenWithScreen();
+            return;
+        }
+        if (recognizer == null) {
+            recognizer = android.speech.SpeechRecognizer.createSpeechRecognizer(act, svc);
+            recognizer.setRecognitionListener(new android.speech.RecognitionListener() {
+                public void onReadyForSpeech(android.os.Bundle b) { showListening("Listening… say a preset name"); }
+                public void onBeginningOfSpeech() { showListening("Listening…"); }
+                public void onRmsChanged(float db) { }
+                public void onBufferReceived(byte[] b) { }
+                public void onEndOfSpeech() { showListening("Got it…"); }
+                public void onError(int error) {
+                    android.util.Log.w("Visualizer", "speech: error " + error);
+                    listening = false;
+                    showListening(null);
+                    if (error == android.speech.SpeechRecognizer.ERROR_NO_MATCH
+                            || error == android.speech.SpeechRecognizer.ERROR_SPEECH_TIMEOUT) {
+                        flash("Didn't catch that. Press Speak and try again.");
+                    } else {
+                        listenWithScreen();  // the service would not listen for us: use its own screen
+                    }
+                }
+                public void onResults(android.os.Bundle b) {
+                    listening = false;
+                    showListening(null);
+                    ArrayList<String> said = b.getStringArrayList(android.speech.SpeechRecognizer.RESULTS_RECOGNITION);
+                    android.util.Log.i("Visualizer", "speech: " + (said == null ? 0 : said.size()) + " results");
+                    if (said != null && !said.isEmpty()) heard(said.get(0));
+                }
+                public void onPartialResults(android.os.Bundle b) {
+                    ArrayList<String> said = b.getStringArrayList(android.speech.SpeechRecognizer.RESULTS_RECOGNITION);
+                    if (said != null && !said.isEmpty() && !said.get(0).isEmpty()) showListening(said.get(0) + " …");
+                }
+                public void onEvent(int type, android.os.Bundle b) { }
+            });
+        }
+        Intent i = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+                .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                .putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+                .putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1);
+        listening = true;
+        showListening("Starting the microphone…");
+        recognizer.startListening(i);
+    }
+
+    private void stopListening() {
+        listening = false;
+        if (recognizer != null) recognizer.cancel();
+        showListening(null);
+    }
+
+    /** The search field shows what voice is doing; null puts the query back. */
+    private void showListening(String note) {
+        if (note == null) {
+            update();
+        } else {
+            field.setText(note);
+        }
+    }
+
+    private void flash(String note) {
+        field.setText(note);
+        field.postDelayed(this::update, 2500);
+    }
+
+    /** Releases the recognizer (the menu or activity is going away). */
+    void release() {
+        stopListening();
+        if (recognizer != null) recognizer.destroy();
+        recognizer = null;
+    }
+
+    private void listenWithScreen() {
         try {
             act.startActivityForResult(speechIntent(), REQ_SPEECH);
         } catch (ActivityNotFoundException | SecurityException e) {
