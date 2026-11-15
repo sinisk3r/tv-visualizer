@@ -111,6 +111,9 @@ browser (find) panel needs work. User decisions:
   user's 1xx, which clashes with presets 100-199; in mockup A2, awaiting the user). Presets keep 1-9,791.
 - **Picture:** only Smooth or Sharp in the main settings; fixed 480p-1080p only under Advanced (a fixed size
   forces a worse picture on most presets).
+- **Watching, no menu (15-Nov-2026):** Left/Right previous/next preset, Up/Down previous/next style (as today),
+  0-9 channel, OK opens the bar. A small "now playing" tag top right for 4 s on every change, automatic ones
+  too (today: only on key presses). Setting "Show what's playing", on. Costs frames while shown (4K compose).
 - **Settings (15-Nov-2026):** a small card from the bottom, focus on Playback: time per preset, Picture as
   Smooth or Sharp with the live fps and size. Two rows open the rest: **Live and advanced** (big beats, song
   change, skip heavy, skip deaf, unhide all, get all, fixed picture size, re-test sizes, show frame rate) and

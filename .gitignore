@@ -9,3 +9,5 @@ third_party/presets-*/
 # Unused logo concepts (first round), kept locally only.
 art/icon-*.png
 third_party/.projectm-patch.lock
+tools/mac-render/build/
+third_party/thumbs/
