@@ -37,6 +37,8 @@ import java.util.TreeMap;
  * open (a new preset, a toggled setting, download progress, the clock) only rewrite values in place, so focus
  * never jumps and nothing flickers. Nothing moves or scales over the visuals: panels fade, and hidden ones are GONE.
  *
+ * With no card open, the music card (MusicCard) sits above the bar on the left; Up from any bar button reaches it.
+ *
  * Remote: Left/Right along the bar, Up into the open card, Down back to the button that opened it, OK presses,
  * Back closes the innermost card, then the bar.
  */
@@ -91,6 +93,8 @@ final class MenuPanel {
     private final LinearLayout findRows;
     private final SearchPanel searchPanel;
     private final View cardSearch;
+    /** Music controls above the bar on the left, shown while no other card is open. */
+    private final MusicCard music;
 
     private Button prev, next, fav, hold, shuffle, find, search, settingsButton, hide;
     private final List<Button> buttons = new ArrayList<>();
@@ -164,6 +168,7 @@ final class MenuPanel {
         });
         cardSearch = searchPanel.card();
         buildBar();
+        music = new MusicCard(act, (ViewGroup) root, bar, scrim, () -> host.demoSong() != null);
         buildSettingsCard();
         buildAdvancedCard();
         buildAbout();
@@ -216,6 +221,7 @@ final class MenuPanel {
         scrim.setVisibility(View.VISIBLE);
         markOpen(null);
         fadeIn(root);  // VISIBLE first: a hidden view cannot take focus, and refresh() skips a closed menu
+        music.show();
         refresh();
         tick();
         fav.cell.requestFocus();
@@ -226,12 +232,14 @@ final class MenuPanel {
         root.animate().cancel();
         root.setVisibility(View.GONE);
         barTitle.setSelected(false);
+        music.hide();
         if (zero != null) zero.closed();
         panel = NONE;
     }
 
     /** Back key: closes the innermost card. Returns false when the bar itself should close. */
     boolean back() {
+        if (music.back()) return true;  // the music card's explainer
         switch (panel) {
             case ABOUT:
                 showPanel(SETTINGS, rowAbout);
@@ -274,6 +282,7 @@ final class MenuPanel {
      * whichever bar button happens to sit below. Returns true when the key was used.
      */
     boolean handleKey(KeyEvent e) {
+        if (panel == NONE && music.handleKey(e, act.getCurrentFocus())) return true;
         if (panel == SEARCH && searchPanel.handleKey(e)) return true;
         if (panel == ZERO) return zero.handleKey(e);
         if (panel == LISTS && lists.handleKey(e)) return true;
@@ -309,6 +318,7 @@ final class MenuPanel {
             progress.setProgress((int) (sec * 1000 / dur));
         }
         if (fpsNow != null) setIfChanged(fpsNow, pictureNow());
+        music.tick();
     }
 
     private static void setIfChanged(TextView t, CharSequence s) {
@@ -344,6 +354,8 @@ final class MenuPanel {
         barTime.setVisibility(p == NONE ? View.VISIBLE : View.GONE);
         barHint.setVisibility(p == NONE ? View.GONE : View.VISIBLE);
         markOpen(p == NONE ? null : owner(p));
+        if (p == NONE) music.show();
+        else music.hide();
         if (p == ZERO) {  // no bar button owns the 0-list, but Back still closes it
             barTime.setVisibility(View.GONE);
             barHint.setVisibility(View.VISIBLE);
