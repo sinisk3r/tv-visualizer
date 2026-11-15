@@ -52,6 +52,21 @@ Later (bigger): match preset energy to the music's energy (reactivity.txt has th
 beat (tempo detection); use the media session for exact song changes and per-song memory (needs notification
 access).
 
+## S. Feels smooth everywhere (the user's ask, 15-Nov-2026)
+
+Ideas in order of felt gain per effort:
+1. Even frame pacing: when a preset cannot hold ~55 fps, lock to an even 30 (swap interval 2) instead of a
+   wobbly 40-50. Auto must then not read 30 fps as "too slow".
+2. CPU performance hints (PerformanceHintManager, the TV's HAL supports it): in progress, A/B with
+   `HINTS=false tools/tv-bench.sh 480`.
+3. Right size from the first frame: predict a new preset's size from its features (unbatched shapes, wave samples,
+   shader length, blur) instead of a guess corrected after ~3 s.
+4. True dynamic resolution: render projectM into an internal picture of any size and upscale it ourselves, in
+   small steps every ~0.5 s, instead of resizing the surface (1.5 s settle, 4 steps). Resizing resets some trails:
+   change on switches or in small steps.
+5. Per-pixel mesh size by preset cost (32x24 now).
+6. Menu drawn inside the GL surface (no 4K composition while open), with B.
+
 ## F. Finding presets: numbers, search, featured (with B)
 
 User decisions, 15-Nov-2026:
