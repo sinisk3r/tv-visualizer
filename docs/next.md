@@ -271,6 +271,12 @@ and ask the user first.
   hardware (CPU and GPU are logged at start as `device ...` and in the projectM line).
 
 ## Done
+- 15-Nov-2026: user decisions built (`menu-fixes`): the menu closes itself when idle (10 s bar, 30 s card;
+  `MenuIdle`), music card scrubber replaces mute (seek +-10 s, 30 s when held; needs notification access),
+  "Shuffle this one only? OK" after picking a set under Everything (`ShuffleAsk`, `PlayOrder.narrowToSet`), 0 then
+  OK plays favourite 01 and 00 then OK plays 001. Also: Auto picture uncapped to the screen's height (`7926813`),
+  Speak listens in-app via Google TV's speech service (`f5ef35e`, to test with the user's voice). 143 JVM tests,
+  24 emulator tests.
 - 15-Nov-2026: music card (item M) merged and on the TV. Checked with Spotify: play/pause, next (Boom to Lonely
   Together); mute now uses the remote's own mute path (TV mute indicator shows) and the visuals keep moving while
   muted (capture is before the volume). 119 JVM tests, 18 emulator tests (T3 done). Left: song details and art
