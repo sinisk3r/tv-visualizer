@@ -7,21 +7,23 @@ Read `CLAUDE.md` first, especially "Testing off the TV".
 ## D. Music feel: quick wins first (before A)
 
 The user wants the visuals to follow the music much more closely. Order: low effort, high value first. The audio
-feed fix is done (see Done). Ask the user first: what plays the sound (TV speakers, soundbar/ARC, Bluetooth),
-and does it feel late, early, or not reacting? Check `adb logcat -s Visualizer | grep audio:` for level and gain.
+feed fix is done (see Done). The user's setup is a soundbar with no noticeable delay, and after the fix it
+"feels a lot better" (15-Nov-2026), so the delay setting is parked. Check `adb logcat -s Visualizer | grep audio:`
+for level and gain.
 
 ```
 Read CLAUDE.md and docs/next.md item D. Goal: the visuals feel locked to the music. Quick wins, in order:
-1. Visual delay setting (menu row, -100..+300 ms, in 20 ms steps): delay the PCM fed to projectM by buffering
-   captures, so beats line up with the user's speakers. Default 0. Test by ear with the user.
-2. Reactivity: tools/ script that scores each preset's audio use (bass/mid/treb/_att/vol references in equations
+1. Reactivity: tools/ script that scores each preset's audio use (bass/mid/treb/_att/vol references in equations
    and shaders, waveform drawn, custom waves reading value1/value2). About 2% of the pack uses no audio at all
    (210 presets) and 3% only draw the waveform. Ship a list; skip the "no audio" ones by default (like heavy.txt)
    and play the strongly reactive ones more often.
-3. Song-aware switching: switch preset on a song change (a gap of near-silence, or a sharp drop and rise in the
+2. Song-aware switching: switch preset on a song change (a gap of near-silence, or a sharp drop and rise in the
    slow AGC level in native.cpp) and on big drops, not only on the 30 s timer. Keep beat cuts.
 Measure what you can on the TV, ask the user to judge by eye, and commit each step separately.
 ```
+
+Parked: a visual delay setting (-100..+300 ms) for setups with audio lag (Bluetooth); not needed on the
+user's soundbar.
 
 Later (bigger): match preset energy to the music's energy; time blends to the beat (tempo detection);
 remember per song which preset looked best (needs permission to read what's playing).
