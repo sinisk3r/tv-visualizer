@@ -85,7 +85,10 @@ User decisions, 15-Nov-2026:
   for remotes without number keys.
 - **Search:** both voice (remote mic, Android SpeechRecognizer) and the on-screen keyboard. Matches names and
   authors; masked words still match.
-- **Featured:** a playlist of the best-looking, most interesting presets. All presets are rated 5/5 in the pack, so
+- **Featured:** a playlist of the best-looking, most interesting presets. Shortlist of 200 done 15-Nov-2026
+  (`tools/make-featured.py` on Mac renders of the 2,279 strongly reactive presets); the user picks ~50 on
+  https://claude.ai/artifact/V8K2VkF9zEjwvoHJw6HvsA (picks saved in its db, `featured/picks`). Then write
+  `assets/featured.txt` from the picks. All presets are rated 5/5 in the pack, so
   curate: a heuristic shortlist (~200: strongly reactive, smooth on the TV, colourful and moving in rendered frames),
   then the user picks ~50 from a review page of thumbnails.
 - **Random across styles:** a mode that changes style on every switch, so variety is guaranteed.
