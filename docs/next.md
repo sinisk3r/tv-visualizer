@@ -255,6 +255,13 @@ safety form and privacy policy).
   hardware (CPU and GPU are logged at start as `device ...` and in the projectM line).
 
 ## Done
+- 15-Nov-2026: menu phase 2b merged and on the TV: the 0-list (favourites 01.., playlists 001-004), Find with lists
+  (Favourites, Featured, Most watched, New to you, Recently played, Styles) and a preview picture saved by the TV
+  (`ThumbGrabber`, 320x180 JPEG at 10 s, files/thumbs), local watch history (`WatchHistory`, 92 days). The number
+  pad's 0 codes go through it. 104 JVM tests. Featured waits for `assets/featured.txt` (user's picks).
+  Open (ask the user): under Everything, should picking a playlist switch Shuffle to This set? Is "New to you" =
+  under 60 s watched right? Favourites past 99 cannot be typed (0nn). Left: README/CLAUDE.md for the new panels;
+  shipped thumbnails for presets never played (from `third_party/thumbs`).
 - 15-Nov-2026: menu phase 2a merged and on the TV: Search (four-row keyboard, Speak, results on the right, every
   typed word must match), number pad (0 / 0n / 00 / 00n rules; the 0-list hook waits for phase 2b). Not checked:
   a real spoken query (emulator had no mic). Left: README/CLAUDE.md notes for SearchPanel after 2b merges.

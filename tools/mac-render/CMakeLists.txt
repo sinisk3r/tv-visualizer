@@ -23,3 +23,9 @@ target_link_libraries(mac-render PRIVATE libprojectM::projectM SDL2::SDL2 "-fram
 add_executable(resize-check resize-check.cpp)
 target_compile_definitions(resize-check PRIVATE GL_SILENCE_DEPRECATION)
 target_link_libraries(resize-check PRIVATE libprojectM::projectM SDL2::SDL2 "-framework OpenGL")
+
+# Upscale comparison (docs/next.md S7): linear vs CAS vs FSR 1 from 480p/720p to 1080p. Run upscale-compare.sh.
+add_executable(upscale-compare upscale-compare.cpp)
+target_include_directories(upscale-compare PRIVATE ${PROJECTM_DIR}/vendor/SOIL2)
+target_compile_definitions(upscale-compare PRIVATE GL_SILENCE_DEPRECATION UPSCALE_SHADER_DIR="${CMAKE_CURRENT_SOURCE_DIR}/upscale")
+target_link_libraries(upscale-compare PRIVATE libprojectM::projectM SDL2::SDL2 "-framework OpenGL")
