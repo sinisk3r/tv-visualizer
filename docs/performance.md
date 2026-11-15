@@ -105,3 +105,9 @@ size goes back and climbs while each step is free (also for presets sitting at 5
 | interference pattern 2 | 39.4 | 56.2 (376p) |
 | splash | 40.1 | 53.6 (376p) |
 
+Sharp, first version (shrink below 24, grow at 30): presets sat at 24-30 fps, too slow for pacing (that needs
+31+), so they ran an uneven ~25 and looked as if Sharp did not adjust. Now Sharp shrinks below 31, grows at
+42+, aims at 36, and paces once settled (also at full size). TV, `PACE=true SECS=30 tools/tv-bench.sh 1`:
+interference 36 fps at 520p, then even 30; a light Flexi preset climbed 592p to 704p, then even 30 at 39 fps.
+Without pacing, all 5 bench presets settle at 31-35 fps between 488p and 712p.
+

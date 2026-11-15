@@ -64,16 +64,28 @@ public class ResolutionControllerTest {
         c.start(100);
         assertEquals(360, c.height());
         assertEquals("at the bottom nothing to shrink", 0, c.update(10, 500));
-        assertTrue(c.atMin());
+        assertTrue(c.settled());
     }
 
     @Test
-    public void sharpAimsFor24() {
+    public void sharpShrinksToASizeThatHoldsAnEven30() {
+        // 24-30 fps cannot be paced (an uneven 25 judders): Sharp shrinks until it runs 31+, then paces to 30.
         ResolutionController c = ResolutionController.sharp();
         c.start(1080);
-        assertEquals(0, c.update(26, 500));
-        int h = c.update(18, 1000);
-        assertTrue(h < 1080 && h >= 480);
+        int h = c.update(fpsAt(1080, 60), 500);  // about 27 fps at 1080p
+        assertTrue("shrinks from 27 fps: " + h, h < 1080 && h >= 480);
+        assertTrue("fast enough to pace: " + fpsAt(h, 60), fpsAt(h, 60) >= 31);
+        assertEquals(0, c.update(fpsAt(h, 60), 1000));
+        assertTrue("settled, so pacing may start", c.settled());
+    }
+
+    @Test
+    public void sharpAtTheTopMayPace() {
+        // A preset at 40 fps at full size: nothing to gain by changing size, so pacing (even 30) decides.
+        ResolutionController c = ResolutionController.sharp();
+        c.start(1080);
+        assertEquals(0, c.update(40, 500));
+        assertTrue(c.settled());
     }
 
     @Test
@@ -85,7 +97,7 @@ public class ResolutionControllerTest {
         int first = c.update(54, t += 500);
         assertTrue(first < 568);
         assertEquals("no gain: back to the size before", 568, c.update(54.5f, t += 500));
-        assertTrue("pacing decides from here", c.atMin());
+        assertTrue("pacing decides from here", c.settled());
         for (int i = 0; i < 3; i++) assertEquals(0, c.update(54, t += 500));
         assertEquals(568, c.height());
     }

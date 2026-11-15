@@ -284,7 +284,7 @@ final class VizRenderer implements GLSurfaceView.Renderer {
                 settle(INNER_SETTLE_MS);
                 return;
             }
-            if (resolution.atMin() && fps < FrameRatePolicy.TOO_SLOW_FPS) {
+            if (resolution.settled() && fps < FrameRatePolicy.TOO_SLOW_FPS) {
                 // Already at the smallest picture: the cost is not in pixels (usually hundreds of custom shapes
                 // worked out on the CPU), so a smaller picture cannot help. Remember it for "Skip heavy presets".
                 Log.i(TAG, String.format("auto: %.0f fps at %dp, too slow: %s", fps, resolution.height(), name));
@@ -292,7 +292,7 @@ final class VizRenderer implements GLSurfaceView.Renderer {
                 if (settings.skipHeavy() && !locked) dropCurrent(true);
                 return;
             }
-            if (!resolution.atMin()) return;  // still room to shrink: no pacing yet
+            if (!resolution.settled()) return;  // the size may still change: no pacing yet
         }
         switch (FrameRatePolicy.decide(fps, pacing, paced)) {
             case PACE_OFF:

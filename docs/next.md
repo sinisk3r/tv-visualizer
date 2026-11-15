@@ -133,6 +133,10 @@ browser (find) panel needs work. User decisions:
   one; shipped thumbnails for the rest (bundle: ~400 x ~10 KB; full pack: with the download), rendered off the
   TV by the Mac harness (to build; also scores Featured candidates).
 - No Winamp name, logo or skins and no MilkDrop branding. The menu stays grey.
+- **Shuffle Everything and Up/Down (15-Nov-2026):** changing style with Shuffle on Everything asks on screen
+  ("Shuffle this style only? OK"); OK switches to This set, anything else keeps Everything. Add to mockup A2.
+- **Fps readout (15-Nov-2026):** the readout must not count as covering the picture: Auto keeps adjusting while
+  it shows (fix when merging `menu-phase1`).
 
 ```
 Read CLAUDE.md and docs/next.md items B and F. Rework mockup A's find panel with the decisions above (four-row
@@ -237,6 +241,8 @@ safety form and privacy policy).
   hardware (CPU and GPU are logged at start as `device ...` and in the projectM line).
 
 ## Done
+- 15-Nov-2026: Sharp adjusts like Smooth: shrinks below 31 fps, then paces an even 30 (was: sat at an uneven
+  24-30). `settled()` lets pacing start at full size too.
 - 15-Nov-2026: bundle swaps its 22 deaf picks (hidden by default) for reacting ones from the same style; the
   other 378 stay, so favourites survive. None of the 6 heavy presets were in it. versionCode 4.
 - 15-Nov-2026: even 30 fps pacing for presets that settle at 31-46 fps; Smooth steps down below 55 fps.

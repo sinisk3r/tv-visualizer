@@ -56,18 +56,20 @@ final class ResolutionController {
         return new ResolutionController(360, 720, 55f, 58f, 60f);
     }
 
-    /** Sharp: 24 fps or more, 480p to 1080p (a 1080p surface). */
+    /** Sharp: an even 30 fps (paced), 480p to 1080p (a 1080p surface). It shrinks below 31 fps, because 24-30
+     *  cannot be paced and judders, and grows at 42 fps or more. */
     static ResolutionController sharp() {
-        return new ResolutionController(480, 1080, 24f, 30f, 27f);
+        return new ResolutionController(480, 1080, 31f, 42f, 36f);
     }
 
     int height() {
         return height;
     }
 
-    /** No smaller size can help: the smallest, or shrinking did not raise the frame rate. */
-    boolean atMin() {
-        return height <= min || cpuBound;
+    /** The size will not change for now, so pacing may decide: the smallest, the largest, or a preset where
+     *  shrinking did not raise the frame rate. */
+    boolean settled() {
+        return height <= min || height >= max || cpuBound;
     }
 
     /** A new preset starts at the height it settled at last time (or a typical one). */
