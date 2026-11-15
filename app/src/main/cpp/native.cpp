@@ -16,6 +16,7 @@
 #include <string>
 #include <thread>
 
+#include "cas_shader.h"
 #include "song_detector.h"
 
 #define LOG(...) __android_log_print(ANDROID_LOG_INFO, "Visualizer", __VA_ARGS__)
@@ -126,6 +127,85 @@ static int surfaceW, surfaceH, innerW, innerH;
 static GLuint innerFbo, innerTex;
 static int innerTexW, innerTexH;
 
+// Sharpening stretch (CAS, cas_shader.h) instead of a plain linear blit. Off: on the TV (Mali-G52) it cost ~35 ms a
+// frame onto a 1080p surface (docs/performance.md, S7). Kept for faster GPUs and the test hook --ez sharpen true.
+static bool sharpen = false;
+static GLuint casProg, casVao;
+static GLint casCon0, casPeak, casSrc;
+static bool casBroken;  // the shader failed to build on this GPU: stay on the linear blit
+constexpr float CAS_SHARPNESS = 0.5f;
+
+static GLuint compile(GLenum type, const char* src) {
+    GLuint s = glCreateShader(type);
+    glShaderSource(s, 1, &src, nullptr);
+    glCompileShader(s);
+    GLint ok = 0;
+    glGetShaderiv(s, GL_COMPILE_STATUS, &ok);
+    if (!ok) {
+        char log[1024];
+        glGetShaderInfoLog(s, sizeof log, nullptr, log);
+        LOG("sharpen: shader failed: %s", log);
+        glDeleteShader(s);
+        return 0;
+    }
+    return s;
+}
+
+static bool ensureCas() {
+    if (casProg) return true;
+    if (casBroken) return false;
+    GLuint v = compile(GL_VERTEX_SHADER, kCasVert), f = compile(GL_FRAGMENT_SHADER, kCasFrag);
+    if (v && f) {
+        casProg = glCreateProgram();
+        glAttachShader(casProg, v);
+        glAttachShader(casProg, f);
+        glLinkProgram(casProg);
+        GLint ok = 0;
+        glGetProgramiv(casProg, GL_LINK_STATUS, &ok);
+        if (!ok) { LOG("sharpen: link failed"); glDeleteProgram(casProg); casProg = 0; }
+    }
+    if (v) glDeleteShader(v);
+    if (f) glDeleteShader(f);
+    if (!casProg) { casBroken = true; return false; }
+    casCon0 = glGetUniformLocation(casProg, "uCon0");
+    casPeak = glGetUniformLocation(casProg, "uPeak");
+    casSrc = glGetUniformLocation(casProg, "uSrc");
+    glGenVertexArrays(1, &casVao);
+    return true;
+}
+
+static void stretchSharp() {
+    GLint prog = 0, vao = 0, tex = 0, active = 0;
+    glGetIntegerv(GL_CURRENT_PROGRAM, &prog);
+    glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &vao);
+    glGetIntegerv(GL_ACTIVE_TEXTURE, &active);
+    glActiveTexture(GL_TEXTURE0);
+    glGetIntegerv(GL_TEXTURE_BINDING_2D, &tex);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glViewport(0, 0, surfaceW, surfaceH);
+    glDisable(GL_BLEND);
+    glDisable(GL_SCISSOR_TEST);
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_CULL_FACE);
+    glUseProgram(casProg);
+    glBindVertexArray(casVao);
+    glBindTexture(GL_TEXTURE_2D, innerTex);
+    float sx = static_cast<float>(innerW) / surfaceW, sy = static_cast<float>(innerH) / surfaceH;
+    glUniform4f(casCon0, sx, sy, 0.5f * sx - 0.5f, 0.5f * sy - 0.5f);
+    glUniform1f(casPeak, -1.0f / (8.0f + (5.0f - 8.0f) * CAS_SHARPNESS));
+    glUniform1i(casSrc, 0);
+    glDrawArrays(GL_TRIANGLES, 0, 3);
+    glBindTexture(GL_TEXTURE_2D, tex);
+    glActiveTexture(active);
+    glBindVertexArray(vao);
+    glUseProgram(prog);
+}
+
+JNIEXPORT void JNICALL
+Java_io_github_sinisk3r_visualizer_Native_setSharpen(JNIEnv*, jclass, jboolean on) {
+    sharpen = on;
+}
+
 static void setProjectMSize();
 JNIEXPORT jboolean JNICALL
 Java_io_github_sinisk3r_visualizer_Native_create(JNIEnv* env, jclass, jint w, jint h, jstring textureDir,
@@ -134,6 +214,8 @@ Java_io_github_sinisk3r_visualizer_Native_create(JNIEnv* env, jclass, jint w, ji
     pm = projectm_create();
     if (!pm) { LOG("projectm_create failed (no GLES3 context?)"); return JNI_FALSE; }
     innerFbo = innerTex = 0;  // a new GL context: the old objects are gone with it
+    casProg = casVao = 0;
+    casBroken = false;
     innerTexW = innerTexH = 0;
     surfaceW = w;
     surfaceH = h;
@@ -312,9 +394,13 @@ Java_io_github_sinisk3r_visualizer_Native_render(JNIEnv*, jclass) {
     glViewport(0, 0, innerW, innerH);
     glClear(GL_COLOR_BUFFER_BIT);
     projectm_opengl_render_frame_fbo(pm, innerFbo);
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, innerFbo);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-    glBlitFramebuffer(0, 0, innerW, innerH, 0, 0, surfaceW, surfaceH, GL_COLOR_BUFFER_BIT, GL_LINEAR);
+    if (sharpen && ensureCas()) {
+        stretchSharp();
+    } else {
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, innerFbo);
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+        glBlitFramebuffer(0, 0, innerW, innerH, 0, 0, surfaceW, surfaceH, GL_COLOR_BUFFER_BIT, GL_LINEAR);
+    }
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glViewport(0, 0, surfaceW, surfaceH);
     return events.exchange(0);

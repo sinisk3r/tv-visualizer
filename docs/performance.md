@@ -136,3 +136,20 @@ pass, sharpness 0.5) and FSR 1 (EASU + RCAS 0.2), and scores against the 1080p r
 - Halos: at most ~1% of pixels near bright detail pushed past the input's local range (green machine's fine
   noise, the worst); thin lines show none worth seeing.
 - Next: CAS only, as a look upgrade on the existing sizes, not a reason to lower them. Measure on the TV.
+
+## Sharpening stretch on the TV (S7, 15-Nov-2026)
+
+CAS (one pass, `app/src/main/cpp/cas_shader.h`, same code as the Mac comparison) in place of the linear blit,
+480p drawn onto a 1080p surface, `SHARPEN=true|false INNER=480 SECS=35 tools/tv-bench.sh 1080`:
+
+| preset | linear | CAS |
+|---|---|---|
+| ants on acid | 39.8 | 16.0 |
+| phlegmployant | 32.4 | 14.5 |
+| green machine | 56.6 | 18.9 |
+| interference pattern 2 | 35.4 | 15.2 |
+| splash | 35.7 | 15.3 |
+
+About 35 ms a frame: 12 texture reads and highp maths per output pixel are far beyond the Mali-G52 at 2 Mpx.
+Even a 720p surface (0.44x the pixels) would cost ~15 ms. Off by default; the code stays behind the test hook for
+faster GPUs. Cheaper ideas, untried: sharpen at the inner size (5 reads, no scaling) before the linear blit, mediump.

@@ -138,6 +138,7 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
                 testPreset != null || prefs.getBoolean("locked", false));
         renderer.pacing = getIntent().getBooleanExtra("pace", true);  // test hook: --ez pace false
         renderer.innerHeight = getIntent().getIntExtra("inner", 0);    // test hook: --ei inner 480
+        Native.setSharpen(getIntent().getBooleanExtra("sharpen", false)); // test hook: --ez sharpen true
         menu = new MenuPanel(this, settings, library, this);
         menu.setPanels(new FindPanel(this, settings, library, lists, thumbDir(), this),
                 new ZeroPanel(this, settings, library, lists, this));

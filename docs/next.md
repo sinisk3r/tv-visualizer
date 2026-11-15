@@ -255,6 +255,10 @@ safety form and privacy policy).
   hardware (CPU and GPU are logged at start as `device ...` and in the projectM line).
 
 ## Done
+- 15-Nov-2026: S7 sharpening tried. Mac (`cfa9f08`): CAS sharpens edges but cannot bring back detail lost to a
+  smaller size (projectM draws thicker lines and coarser waves there). TV: CAS onto 1080p costs ~35 ms a frame
+  (57 to 19 fps), so it is off; code kept behind `--ez sharpen true`. Comparison page:
+  `third_party/thumbs/upscale/index.html`.
 - 15-Nov-2026: menu phase 2b merged and on the TV: the 0-list (favourites 01.., playlists 001-004), Find with lists
   (Favourites, Featured, Most watched, New to you, Recently played, Styles) and a preview picture saved by the TV
   (`ThumbGrabber`, 320x180 JPEG at 10 s, files/thumbs), local watch history (`WatchHistory`, 92 days). The number
