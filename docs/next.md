@@ -110,7 +110,7 @@ browser (find) panel needs work. User decisions:
 ```
 Read CLAUDE.md and docs/next.md items B and F. Rework mockup A's find panel with the decisions above (four-row
 keyboard, mic on the right, results to the right, number keypad, shuffle modes, smart lists, settings page),
-publish it to the same artifact and let the user approve. Then build it in Android (MenuPanel, layouts,
+publish it to the same artifact (A2: design/mockups/a2-transport-bar.html, published 15-Nov-2026) and revise until the user approves. Build nothing until the user approves the mockup. Then build it in Android (MenuPanel, layouts,
 drawables): fade only, no moving views over the GL view, rows never rebuilt for value changes, views GONE when
 hidden. Check layout and focus on the emulator (AVD tv34), then menu-open fps and dumpsys SurfaceFlinger on the
 TV. Fix the name box showing under the menu. Update README and CLAUDE.md. Commit when the user approves.
