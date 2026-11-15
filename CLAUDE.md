@@ -22,8 +22,9 @@ features, build and licences; this file covers how to work on it. Keep it under 
 - `ANDROID_HOME=/opt/homebrew/share/android-commandlinetools JAVA_HOME=/opt/homebrew/opt/openjdk@17 ./gradlew assembleRelease`
   (NDK 27.2.12479018, CMake 3.22.1). Then `adb install -r app/build/outputs/apk/release/app-release.apk`.
 - Test on a real TV over wireless ADB. Logs: `adb logcat -s Visualizer` (fps every 10 s, Auto picture steps).
-- Speed of given presets on the TV: `tools/tv-bench.sh 480 "<preset path on the TV>" ...` (holds each at 480p,
-  ignoring filters; test hook: `am start ... --es preset <path> --ei height 480`). Run one bench at a time.
+- Speed on the TV: `tools/tv-bench.sh 480` runs the 5-preset set in `tools/bench-presets.txt` (~2.5 min); or pass
+  preset paths. Holds each at 480p, ignoring filters (test hook: `am start ... --es preset <path> --ei height 480`).
+  Run one bench at a time.
 - Grant audio without the dialog: `adb shell pm grant io.github.sinisk3r.visualizer android.permission.RECORD_AUDIO`.
 - Drive the remote one key per `adb shell input keyevent <code>` call with ~0.5 s between; batched key lists
   have toggled the wrong rows. Screenshot: `adb exec-out screencap -p > shot.png`.

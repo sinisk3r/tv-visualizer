@@ -57,5 +57,6 @@ Measured on this TV, preset held at 480p, `tools/tv-bench.sh 480 <preset>` (one 
 | amandio c - interference pattern 2 (plain fills) | 501 | 23.8 | 39.4 |
 
 What is left: non-additive borders (one draw per instance and outline pass), and the per-instance equations on the
-CPU. "Skip heavy presets" and `heavy.txt` (200+ instances) were set before this fix and now skip many presets that
-run fine; see docs/next.md.
+CPU. `heavy.txt` now lists presets by unbatched instances (non-additive shapes with a border) instead of all
+instances: 197 presets at 500+, down from 1,654 at 200+ instances in all. From 23 presets measured at 480p after
+the fix: 1,000+ unbatched ran 10-12 fps, 200-300 ran 29-31 fps, 100 or fewer 39-60 fps.

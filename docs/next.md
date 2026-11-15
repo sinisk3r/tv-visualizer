@@ -56,8 +56,9 @@ access).
 ## A2. After the shape fix: heavy list and upstream
 
 The backport of upstream #1044 tripled shape-heavy presets on the TV (see docs/performance.md). Open:
-- **Heavy list is now too strict:** `heavy.txt` (200+ instances, 1,654 presets) and Auto picture's "too slow" list
-  were measured before the fix. Re-measure and raise the threshold or drop the list.
+- Done 15-Nov-2026: heavy list now counts unbatched instances (197 presets at 500+, was 1,654); learned sizes
+  reset on update (RENDERER_GENERATION). Auto test: climbs where there's room (480p to 540p at 60 fps, 540p to
+  720p at 52 fps), CPU-bound presets stay too slow at 480p.
 - **Non-additive borders** are still one draw per instance: phlegmployant 12 fps, mother-of-whirl 10 fps (1,024
   instances, border_a 0.006, the one slow preset the user noticed). Idea: emit those borders as 1-pixel quads in
   the same triangle list (exact order, one draw call). Upstream follow-up to #1044 (mentioned in our comment).
@@ -91,6 +92,11 @@ licence (e.g. OFL pixel fonts), with the licence noted in README.
 ```
 
 ## C. Smaller items (pick any when A or B is blocked)
+
+- **Auto picture: smooth or sharp?** Auto keeps a preset at a size while it runs 24-55 fps, so big swede runs 37 fps
+  at 720p instead of 60 fps at 480p (15-Nov-2026 test). Ask the user; raising SLOW_FPS to ~45 favours smoothness.
+- **Preset fixes upstream:** Cream of the Crop PR #7 (open) fixes expression parse errors in 67 presets. Check how
+  many fail on our TV today (`preset failed` in the log), and pull the fixed files into the full pack/bundle.
 
 - **Preset browser:** the menu's way of finding presets "can be slightly better" (user feedback, 15-Nov-2026).
   Ask what bothers them before designing.

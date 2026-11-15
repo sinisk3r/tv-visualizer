@@ -1,0 +1,7 @@
+# The standard TV speed check (tools/tv-bench.sh with no preset arguments). One preset per case, from the 23
+# measured on 15-Nov-2026 (docs/performance.md). Paths are under the app's files/presets folder on the TV.
+Dancer/Serpent/cope - ants on acid orchestrate chaos - flx roam i hate myself.milk
+Waveform/Wire Spirograph/suksma - phlegmployant.milk
+Drawing/Trails Mirror/martin - amandio c - a different view of the green machine.milk
+Fractal/Wave Interference/amandio c - interference pattern 2.milk
+Dancer/Infect Mirror/stahlregen - splash! (unCrystallization) cerebral pulsy.milk

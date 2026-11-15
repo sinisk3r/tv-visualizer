@@ -26,8 +26,9 @@ skipped. While a preset plays, the next one's shaders compile on a background th
 freeze the picture.
 
 Skip heavy presets (on by default) leaves out presets that crawl on TV hardware whatever the picture size:
-- 1,654 listed in `app/src/main/assets/heavy.txt` (`tools/make-heavy-list.py`): custom shapes with 200+
-  instances per frame, each worked out on the CPU and drawn on its own.
+- 197 listed in `app/src/main/assets/heavy.txt` (`tools/make-heavy-list.py`): 500+ custom shape instances that are
+  still drawn one at a time (non-additive shapes with a border). Other shapes are drawn in batches since the
+  projectM patch in `patches/projectm/` (docs/performance.md).
 - Any preset Auto picture measures under 20 fps at 480p on this TV. "Re-test picture sizes" forgets these too.
 
 Presets are scored by how much they follow the music (`app/src/main/assets/reactivity.txt`, from
