@@ -36,8 +36,8 @@ final class Settings {
 
     /** Raise when a change makes presets render faster or slower (projectM patches, renderer changes): the first
      *  start after the update forgets what Auto picture learned on the old renderer and measures again.
-     *  2: batched custom shapes (patches/projectm/0001, 15-Nov-2026). */
-    static final int RENDERER_GENERATION = 2;
+     *  2: batched custom shapes (patches/projectm/0001, 15-Nov-2026). 3: batched non-additive borders (0002). */
+    static final int RENDERER_GENERATION = 3;
     /** True when this start cleared learned picture sizes because the renderer changed. */
     final boolean relearning;
 

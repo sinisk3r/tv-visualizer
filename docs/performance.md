@@ -56,7 +56,9 @@ Measured on this TV, preset held at 480p, `tools/tv-bench.sh 480 <preset>` (one 
 | suksma - big swede (additive fills) | 512 | 22.8 | 60.0 |
 | amandio c - interference pattern 2 (plain fills) | 501 | 23.8 | 39.4 |
 
-What is left: non-additive borders (one draw per instance and outline pass), and the per-instance equations on the
-CPU. `heavy.txt` now lists presets by unbatched instances (non-additive shapes with a border) instead of all
+Then `0002-batch-non-additive-shape-borders.patch` (ours): borders of untextured, non-additive shapes as 1-pixel
+quads in the same triangle list. Same bench: phlegmployant 12.1 to 28.1 fps, ants on acid 30.9 to 38.5, the others
+unchanged (green machine 51.0, interference 39.1, splash 40.1). What is left: borders of textured non-additive
+shapes, and the per-instance equations on the CPU. `heavy.txt` now lists presets by unbatched instances (non-additive shapes with a border) instead of all
 instances: 197 presets at 500+, down from 1,654 at 200+ instances in all. From 23 presets measured at 480p after
 the fix: 1,000+ unbatched ran 10-12 fps, 200-300 ran 29-31 fps, 100 or fewer 39-60 fps.

@@ -1,0 +1,64 @@
+diff --git a/src/libprojectM/MilkdropPreset/CustomShape.cpp b/src/libprojectM/MilkdropPreset/CustomShape.cpp
+index 8b6a79d2c..e7814ebb7 100644
+--- a/src/libprojectM/MilkdropPreset/CustomShape.cpp
++++ b/src/libprojectM/MilkdropPreset/CustomShape.cpp
+@@ -379,7 +379,52 @@ void CustomShape::Draw()
+                 continue;
+             }
+ 
+-            // Draw everything collected so far, this instance's fill included, before its border.
++            if (!textured)
++            {
++                // Non-additive borders must be drawn right after their own fill, before the next instance. On an
++                // untextured shape, the border goes into the same triangle list as the fills, as one 1-pixel-wide
++                // quad per edge, so the order stays exact without a draw call per instance.
++                const float pixelX = 2.0f / static_cast<float>(m_presetState.renderContext.viewportSizeX);
++                const float pixelY = 2.0f / static_cast<float>(m_presetState.renderContext.viewportSizeY);
++                TexturedPoint corner;
++                corner.r = borderR;
++                corner.g = borderG;
++                corner.b = borderB;
++                corner.a = borderA;
++                for (auto iteration = 0; iteration < iterations; iteration++)
++                {
++                    const auto& offset = outlineOffsets[iteration];
++                    for (int i = 0; i < sides; i++)
++                    {
++                        const auto& from = edge[i];
++                        const auto& to = edge[(i + 1) % sides];
++                        // The edge's normal in pixels, half a pixel each way.
++                        const float dxPixels = (to.x - from.x) / pixelX;
++                        const float dyPixels = (to.y - from.y) / pixelY;
++                        const float length = sqrtf(dxPixels * dxPixels + dyPixels * dyPixels);
++                        if (length < 1e-6f)
++                        {
++                            continue;
++                        }
++                        const float nx = -dyPixels / length * 0.5f * pixelX;
++                        const float ny = dxPixels / length * 0.5f * pixelY;
++
++                        const float ax = from.x + offset.x, ay = from.y + offset.y;
++                        const float bx = to.x + offset.x, by = to.y + offset.y;
++                        const float quad[6][2] = {{ax - nx, ay - ny}, {bx - nx, by - ny}, {bx + nx, by + ny},
++                                                  {ax - nx, ay - ny}, {bx + nx, by + ny}, {ax + nx, ay + ny}};
++                        for (const auto& q : quad)
++                        {
++                            corner.x = q[0];
++                            corner.y = q[1];
++                            m_batch.push_back(corner);
++                        }
++                    }
++                }
++                continue;
++            }
++
++            // Textured shape: draw everything collected so far, this instance's fill included, before its border.
+             flushBatch();
+ 
+             std::array<ShapeVertex, 100> points;
+diff --git a/vendor/projectm-eval b/vendor/projectm-eval
+--- a/vendor/projectm-eval
++++ b/vendor/projectm-eval
+@@ -1 +1 @@
+-Subproject commit e8c311e86f4d8c082e96e02b6a33525034eee6d4
++Subproject commit e8c311e86f4d8c082e96e02b6a33525034eee6d4-dirty

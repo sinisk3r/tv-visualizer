@@ -8,3 +8,4 @@ local.properties
 third_party/presets-*/
 # Unused logo concepts (first round), kept locally only.
 art/icon-*.png
+third_party/.projectm-patch.lock
