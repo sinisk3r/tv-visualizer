@@ -4,11 +4,11 @@ The queue for this repo, top item first (the user's order: low effort, high valu
 When an item is done, move it to "Done" with the date and commit. Add new items with a ready-to-paste prompt.
 Read `CLAUDE.md` first, especially "Testing off the TV".
 
-## P. Play Store release (the user's next priority, 15-Nov-2026)
+## P. Play Store release (free public app, open source; the user's next priority, 15-Nov-2026)
 
 Done: upload-key signing in Gradle (`-PplayUpload`, keys in ~/.gradle/gradle.properties), relearning after
 renderer updates. Waiting on the user: create the upload key (keytool command in the session notes / below), the
-Play developer account, and the answer to "free public app, or paid later?" (decides open vs open-core).
+Play developer account, Decided: free public app, stays open source.
 
 ```
 Read CLAUDE.md and docs/next.md item P. Goal: a Play Store build that passes review for Android TV.
@@ -53,27 +53,6 @@ Later (bigger): match preset energy to the music's energy (reactivity.txt has th
 beat (tempo detection); use the media session for exact song changes and per-song memory (needs notification
 access).
 
-## A2. After the shape fix: heavy list and upstream
-
-The backport of upstream #1044 tripled shape-heavy presets on the TV (see docs/performance.md). Open:
-- Done 15-Nov-2026: heavy list now counts unbatched instances (197 presets at 500+, was 1,654); learned sizes
-  reset on update (RENDERER_GENERATION). Auto test: climbs where there's room (480p to 540p at 60 fps, 540p to
-  720p at 52 fps), CPU-bound presets stay too slow at 480p.
-- **Non-additive borders** are still one draw per instance: phlegmployant 12 fps, mother-of-whirl 10 fps (1,024
-  instances, border_a 0.006, the one slow preset the user noticed). Idea: emit those borders as 1-pixel quads in
-  the same triangle list (exact order, one draw call). Upstream follow-up to #1044 (mentioned in our comment).
-- Posted the TV results on #1044 (15-Nov-2026) and offered the 4.1 backport for the `v4.1.x` branch. Watch for a
-  reply.
-
-```
-Read CLAUDE.md, docs/performance.md and docs/next.md item A2. Goal: Skip heavy presets matches the TV after the
-shape fix.
-1. With tools/tv-bench.sh, measure ~15 presets from heavy.txt spread over instance counts (200-4096) at 480p.
-2. Fit fps against instance count (and borders/additive) and set a new threshold in tools/make-heavy-list.py.
-   Regenerate heavy.txt. "Re-test picture sizes" clears the old learned "too slow" list on the TV; tell the user.
-3. Commit.
-```
-
 ## B. Late-90s player theme for the app's UI
 
 ```
@@ -93,8 +72,12 @@ licence (e.g. OFL pixel fonts), with the licence noted in README.
 
 ## C. Smaller items (pick any when A or B is blocked)
 
-- **Auto picture: smooth or sharp?** Auto keeps a preset at a size while it runs 24-55 fps, so big swede runs 37 fps
-  at 720p instead of 60 fps at 480p (15-Nov-2026 test). Ask the user; raising SLOW_FPS to ~45 favours smoothness.
+- **Room microphone mode:** this TCL TV lists far-field voice features (`com.tcl.software.audio_farvoice`) but no
+  `android.hardware.microphone`. Test whether an app can open it (AudioRecord, VOICE_RECOGNITION source) while
+  "Hey Google" is idle. If yes: a "Listen to the room" option for music from another speaker. Ask the user first.
+- **Upstream 0002:** offer `patches/projectm/0002` (non-additive borders as quads) upstream after #1044 merges.
+- **Menu cost:** any visible view makes the TV compose 4K on the GPU (60 to ~40 fps with the menu open), whatever
+  its transparency. Drawing the menu inside the GL surface would avoid it; consider in the redesign (B).
 - **Preset fixes upstream:** Cream of the Crop PR #7 (open) fixes expression parse errors in 67 presets. Check how
   many fail on our TV today (`preset failed` in the log), and pull the fixed files into the full pack/bundle.
 
@@ -107,6 +90,9 @@ licence (e.g. OFL pixel fonts), with the licence noted in README.
   hardware (CPU and GPU are logged at start as `device ...` and in the projectM line).
 
 ## Done
+- 15-Nov-2026: shapes after the backport: patch 0002 batches non-additive borders (phlegmployant 12 to 28 fps,
+  mother-of-whirl 10 to 35); heavy list 1,654 to 6; learned sizes reset on renderer updates; Smooth/Sharp auto
+  picture, Smooth default (`9701f84`, `57aac24`). #1044 TV results posted upstream.
 - 15-Nov-2026: batched custom shape draws, backport of upstream #1044 as a build-time patch: ants on acid 9.9 to
   30.9 fps at 480p on the TV (`9fbebd3`). Mac harness skipped: the TV measurement settled it.
 - 15-Nov-2026: song-aware switching: a gap in the music (new song or a drop after silence) switches on the first
