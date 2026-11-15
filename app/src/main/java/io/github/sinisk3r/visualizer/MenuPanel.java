@@ -112,7 +112,7 @@ final class MenuPanel {
     void refresh() {
         if (!isOpen()) return;
         File current = host.currentPreset();
-        setIfChanged(nowPlaying, current == null ? "" : PresetLibrary.displayName(current));
+        setIfChanged(nowPlaying, current == null ? "" : library.title(current));
         for (Binding b : bindings) setIfChanged(b.value, b.valueText.get());
     }
 

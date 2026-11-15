@@ -28,6 +28,10 @@ final class VizRenderer implements GLSurfaceView.Renderer {
     private static final long KEY_BLEND_MS = 1500;   // shorter for remote presses, so the remote feels quick
     private static final long GAP_BLEND_MS = 700;    // after a gap in the music: on the first beat of what follows
     private long blendOnce;                          // a blend length for the next change only (0: default)
+    private static final long USER_PICK_GRACE_MS = 20_000; // no automatic switch this soon after the user picks
+    private long userPickedAt = -USER_PICK_GRACE_MS;
+    /** projectM's timer asked for a switch during the grace; it will not ask again, so switch when it ends. */
+    private boolean switchAfterGrace;
     private static final long SETTLE_MS = 1500;      // after a load or resize
     private static final long WINDOW_MS = 3000;      // one measurement
     private static final float FAST_FPS = 55f;       // at or above this the GPU has room
@@ -206,6 +210,12 @@ final class VizRenderer implements GLSurfaceView.Renderer {
         if ((ev & Native.EV_FAILED) != 0) {
             // Drop presets that do not compile on this GPU, so they never come back this session.
             dropCurrent(false);
+        } else if (SystemClock.uptimeMillis() - userPickedAt < USER_PICK_GRACE_MS) {
+            // The user just chose this preset (remote or channel number): let them see it.
+            if ((ev & Native.EV_SWITCH) != 0) switchAfterGrace = true;
+        } else if (switchAfterGrace && !locked) {
+            switchAfterGrace = false;
+            step(1, true, false);
         } else if ((ev & Native.EV_DROP) != 0 && !locked) {
             step(1, !settings.beatCuts(), false);  // a cut, or a blend when big-beat cuts are off
         } else if ((ev & Native.EV_SONG) != 0 && !locked) {
@@ -313,6 +323,21 @@ final class VizRenderer implements GLSurfaceView.Renderer {
 
     // --- actions (from the remote, via queueEvent) ---
 
+    /** Jumps to this preset (typed channel number). If the current style's order skips it (filters, another
+     *  style), it is slotted in after the current one, so Next and Back still work from there. */
+    void play(File preset) {
+        int i = -1;
+        for (int k = 0; k < order.size(); k++) {
+            if (order.get(k).getPath().equals(preset.getPath())) { i = k; break; }
+        }
+        if (i < 0) {
+            i = Math.min(position + 1, order.size());
+            order.add(i, preset);
+        }
+        position = i;
+        show(preset, true, true);
+    }
+
     /** Next (+1) or previous (-1) preset in the current style; wraps around. */
     void step(int delta, boolean smooth, boolean userAction) {
         if (order.isEmpty()) {
@@ -357,6 +382,8 @@ final class VizRenderer implements GLSurfaceView.Renderer {
 
     private void show(File preset, boolean smooth, boolean userAction) {
         long blend = blendOnce > 0 ? blendOnce : userAction ? KEY_BLEND_MS : BLEND_MS;
+        if (userAction) userPickedAt = SystemClock.uptimeMillis();
+        switchAfterGrace = false;
         blendOnce = 0;
         if (ready) {
             long t0 = System.nanoTime();

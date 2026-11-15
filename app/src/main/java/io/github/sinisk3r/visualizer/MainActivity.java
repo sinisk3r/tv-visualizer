@@ -87,8 +87,15 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
     /** Started by the adb test hook: play state is not saved. */
     private boolean testRun;
 
+    private PresetLibrary library;
+    /** Channel number being typed on the remote's number keys; "" when none. */
+    private String typed = "";
+    private static final long NUMBER_WAIT_MS = 1800;
+    private final Runnable playTyped = this::playTyped;
+
     private void startVisuals(PresetLibrary library) {
         if (isDestroyed()) return;
+        this.library = library;
         // Test hook (adb): start on one preset, held, at a fixed picture height, without touching saved settings:
         // am start -n .../.MainActivity --es preset <path on the TV> --ei height 480
         String testPreset = getIntent().getStringExtra("preset");
@@ -226,12 +233,56 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
             case KeyEvent.KEYCODE_DPAD_CENTER: case KeyEvent.KEYCODE_ENTER: case KeyEvent.KEYCODE_NUMPAD_ENTER:
             case KeyEvent.KEYCODE_MENU: case KeyEvent.KEYCODE_INFO:
                 return true;
+            case KeyEvent.KEYCODE_0: case KeyEvent.KEYCODE_1: case KeyEvent.KEYCODE_2: case KeyEvent.KEYCODE_3:
+            case KeyEvent.KEYCODE_4: case KeyEvent.KEYCODE_5: case KeyEvent.KEYCODE_6: case KeyEvent.KEYCODE_7:
+            case KeyEvent.KEYCODE_8: case KeyEvent.KEYCODE_9:
+                return true;
             default:
                 return false;
         }
     }
 
+    /** A number key: add the digit, show the number and the preset it leads to, play it after a short pause. */
+    private void typeDigit(int digit) {
+        if (typed.length() >= 4) typed = "";
+        typed += digit;
+        int n = Integer.parseInt(typed);
+        File f = library.byNumber(n);
+        title.setText(typed + "_");
+        subtitle.setText(f != null ? PresetLibrary.displayName(f)
+                : library.numberNeedsFullPack(n) ? "In the full pack: menu > Get all presets" : "No preset " + n);
+        hint.setVisibility(View.GONE);
+        overlay.animate().cancel();
+        overlay.setVisibility(View.VISIBLE);
+        overlay.setAlpha(1f);
+        ui.removeCallbacks(hideOverlay);
+        ui.removeCallbacks(playTyped);
+        ui.postDelayed(playTyped, NUMBER_WAIT_MS);
+        updateCovered();
+    }
+
+    private void playTyped() {
+        ui.removeCallbacks(playTyped);
+        if (typed.isEmpty()) return;
+        File f = library.byNumber(Integer.parseInt(typed));
+        typed = "";
+        if (f != null) {
+            glView.queueEvent(() -> renderer.play(f));
+        } else {
+            ui.postDelayed(hideOverlay, 1200);
+        }
+    }
+
     private boolean handleKey(int keyCode) {
+        if (keyCode >= KeyEvent.KEYCODE_0 && keyCode <= KeyEvent.KEYCODE_9) {
+            typeDigit(keyCode - KeyEvent.KEYCODE_0);
+            return true;
+        }
+        if (!typed.isEmpty() && (keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER
+                || keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER)) {
+            playTyped();  // OK plays the typed number now
+            return true;
+        }
         switch (keyCode) {
             case KeyEvent.KEYCODE_DPAD_RIGHT:
             case KeyEvent.KEYCODE_MEDIA_FAST_FORWARD:
@@ -276,7 +327,7 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
                 .putString("preset", p == null ? null : p.getPath())
                 .putBoolean("locked", locked)
                 .apply();
-        String preset = p == null ? "" : PresetLibrary.displayName(p);
+        String preset = p == null ? "" : library.title(p);
         ui.post(() -> {
             menu.refresh();
             title.setText(preset);

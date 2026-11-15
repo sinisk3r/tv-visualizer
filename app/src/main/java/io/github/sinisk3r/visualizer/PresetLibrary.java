@@ -66,6 +66,53 @@ final class PresetLibrary {
         byCategory.put(ALL, all);
         loadHeavy(ctx.getAssets());
         loadReactivity(ctx.getAssets());
+        loadNumbers(ctx.getAssets());
+    }
+
+    /** Fixed channel numbers (assets/numbers.txt, from tools/make-numbers.py): file name to number and back. */
+    private final Map<String, Integer> numberOf = new HashMap<>();
+    private final Map<Integer, String> nameOf = new HashMap<>();
+    /** Every preset by file name, for jumping to a number. */
+    private final Map<String, File> byName = new HashMap<>();
+
+    private void loadNumbers(AssetManager assets) {
+        try (java.io.BufferedReader in = new java.io.BufferedReader(new java.io.InputStreamReader(
+                assets.open("numbers.txt"), java.nio.charset.StandardCharsets.UTF_8))) {
+            for (String line; (line = in.readLine()) != null; ) {
+                int tab = line.indexOf('\t');
+                if (tab <= 0) continue;
+                int n = Integer.parseInt(line.substring(0, tab));
+                String name = line.substring(tab + 1);
+                numberOf.put(name, n);
+                nameOf.put(n, name);
+            }
+        } catch (IOException | NumberFormatException e) {
+            android.util.Log.w("Visualizer", "no preset numbers", e);
+        }
+        for (File f : all) byName.put(f.getName(), f);
+    }
+
+    /** The preset's channel number, or 0 if it has none (a user's own preset). */
+    int numberOf(File f) {
+        Integer n = numberOf.get(f.getName());
+        return n != null ? n : 0;
+    }
+
+    /** The preset with this channel number in this library, or null (not numbered, or not downloaded). */
+    File byNumber(int n) {
+        String name = nameOf.get(n);
+        return name == null ? null : byName.get(name);
+    }
+
+    /** True when the number belongs to a preset that is only in the full pack. */
+    boolean numberNeedsFullPack(int n) {
+        return nameOf.containsKey(n) && byNumber(n) == null;
+    }
+
+    /** "2403 · name" for presets with a number, else the name. */
+    String title(File f) {
+        int n = numberOf(f);
+        return n > 0 ? n + "  ·  " + displayName(f) : displayName(f);
     }
 
     private void loadReactivity(AssetManager assets) {
