@@ -14,8 +14,8 @@ It is never recorded, stored, or sent anywhere.
 **Song details (optional).** The music card in the menu can show the song, artist and album art of the app
 playing music, if you turn on "notification access" for Visualizer in TV Settings. The app asks only when you choose
 "See song and album art". It then reads only what music apps publish as "now playing"; it does not read or keep your
-notifications. The song details are shown on the TV and never stored or sent. Play, pause, skip and mute work
-without this access.
+notifications. The song details are shown on the TV and never stored or sent. Play, pause and skip work
+without this access; moving within the song (the card's scrubber) needs it.
 
 **Network.** The app uses the internet only when you choose "Get all presets" in the menu. It then downloads a
 preset pack from GitHub (github.com/projectM-visualizer). Nothing about you or your TV is sent, beyond what any
