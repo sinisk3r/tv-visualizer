@@ -135,8 +135,7 @@ browser (find) panel needs work. User decisions:
 - No Winamp name, logo or skins and no MilkDrop branding. The menu stays grey.
 - **Shuffle Everything and Up/Down (15-Nov-2026):** changing style with Shuffle on Everything asks on screen
   ("Shuffle this style only? OK"); OK switches to This set, anything else keeps Everything. Add to mockup A2.
-- **Fps readout (15-Nov-2026):** the readout must not count as covering the picture: Auto keeps adjusting while
-  it shows (fix when merging `menu-phase1`).
+- **Fps readout (15-Nov-2026):** dropped at the user's call; the settings card shows the 30 s average instead.
 
 ```
 Read CLAUDE.md and docs/next.md items B and F. Rework mockup A's find panel with the decisions above (four-row
@@ -241,6 +240,9 @@ safety form and privacy policy).
   hardware (CPU and GPU are logged at start as `device ...` and in the projectM line).
 
 ## Done
+- 15-Nov-2026: menu phase 1 merged and on the TV (`14d9e6e`): transport bar (Previous/Next kept, OK lands on
+  Favourite), settings card with the average frame rate (no on-screen readout), Live and advanced, About, the
+  now-playing tag, scrolling titles. Menu open composes on the GPU (CLIENT); closed, none. Next: phase 2.
 - 15-Nov-2026: Sharp adjusts like Smooth: shrinks below 31 fps, then paces an even 30 (was: sat at an uneven
   24-30). `settled()` lets pacing start at full size too.
 - 15-Nov-2026: bundle swaps its 22 deaf picks (hidden by default) for reacting ones from the same style; the
