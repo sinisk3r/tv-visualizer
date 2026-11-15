@@ -10,16 +10,21 @@ recorded or sent.
 |---|---|
 | Left / Right | Previous / next preset (1.5 s blend) |
 | Up / Down | Change style: All, ★ Favourites, Dancer, Drawing, Fractal, ... |
-| OK / Menu | Open the menu (Back closes) |
+| 0-9 | Channel number: jump to a preset |
+| OK / Menu | Open the menu bar (Back closes) |
 | Info | Show the current preset name |
 | Touch | Tap = next, long-press = menu |
 
-Menu (left side; Up/Down moves, OK toggles or opens, Left/Right changes a value, Back goes back):
-- Hold this preset (forever), ★ Favourite, Hide this preset
-- Time per preset (15 s to 5 min), Picture (Smooth or Sharp auto, or a fixed 480p/540p/720p/1080p), Switch on big beats,
-  Skip heavy presets, Skip deaf presets
-- Styles: each style opens a page with "Play this style" and one switch per sub-style
-- Presets: Get all 9,795 presets, Favourites, Unhide all, Re-test picture sizes
+A small tag top right shows what is playing for 4 s on every change, automatic ones too ("Show what's playing").
+
+Menu: a bar at the bottom (Left/Right moves, OK presses, Up goes into an open card, Back closes it, then the bar):
+- Now playing: number, name, the preset's style and sub-style, and what plays (style or list, shuffle, held)
+- Previous, Next, ★ Favourite (focus starts here), Hold | Shuffle (Off, This set, Everything), Find, Search
+  (coming soon), Settings | time per preset | Hide, alone on the right
+- Find: each style opens a page with "Play this style" and one switch per sub-style
+- Settings: time per preset (15 s to 5 min), Picture Smooth or Sharp with the live frame rate; Live and advanced
+  (switch on big beats, skip heavy, skip deaf, unhide all, get all 9,795 presets, fixed picture size, re-test
+  sizes, show frame rate, show what's playing); About and licences
 
 Presets switch every 30 s (3 s blend), or on a big beat (hard cut). Presets that fail to compile on the GPU are
 skipped. While a preset plays, the next one's shaders compile on a background thread, so the switch does not
@@ -40,7 +45,7 @@ them out), 658 move only a waveform (played half as often) and the top quarter, 
 - 400 bundled: 40 per style, picked with a fixed seed from
   [Cream of the Crop](https://github.com/projectM-visualizer/presets-cream-of-the-crop) (9,795 presets),
   plus the [MilkDrop texture pack](https://github.com/projectM-visualizer/presets-milkdrop-texture-pack).
-- Full pack: menu > Presets > Get all 9,795 presets. Downloads a 33 MB zip from GitHub (pinned commit in
+- Full pack: menu > Settings > Live and advanced > Get all 9,795. Downloads a 33 MB zip from GitHub (pinned commit in
   `PackDownloader.COMMIT`), unpacks ~156 MB of `.milk` files into the app's files folder, then restarts the app.
 - Sorted two levels deep: style (top folder) and sub-style (folder under it), e.g. Geometric > Cathedral.
   10 styles, 183 sub-styles in the full pack.
@@ -67,7 +72,7 @@ own height on this TV: a 3 s window under 24 fps steps it down (1080p, 720p, 540
 Frames during the 3 s blend between presets and 1.5 s after a load or resize are not counted (two presets render
 at once during a blend; shader compiles stall the first frames). A lowered preset that holds 55+ fps for 10 s
 tries one step up, once per session. A preset never seen before starts at the height most presets settled at.
-Nothing is measured while the menu or the preset name is on screen (see `docs/performance.md`).
+Nothing is measured while the menu, the now-playing tag or the frame rate readout is on screen (see `docs/performance.md`).
 
 ## Performance (TCL G08, Mali-G52, 32-bit, 13-Nov-2026)
 Fixed 540p with a 32x24 mesh: 30-60 fps, typically ~45. At 720p / 48x32: 13-42 fps. At 1080p many presets

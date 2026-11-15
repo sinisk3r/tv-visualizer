@@ -7,8 +7,8 @@ features, build and licences; this file covers how to work on it. Keep it under 
 - `app/src/main/java/io/github/sinisk3r/visualizer/`
   - `MainActivity`: keys, audio capture (`Visualizer` session 0), overlay, starts visuals after the preset scan.
   - `VizRenderer`: GL thread. Play order, style filters, Auto picture, fps log. Reached only via `queueEvent`.
-  - `MenuPanel`: the OK menu (main page + one page per style). Rows built once per page; `refresh()` only
-    rewrites values.
+  - `MenuPanel`: the OK menu: transport bar + cards (settings, live and advanced, find, about). Built once
+    (Find rows once per page); `refresh()`/`tick()` only rewrite values. `BarText`: its texts, with tests.
   - `PresetLibrary` (scan, styles, sub-styles), `PackDownloader` (full pack), `Settings` (prefs), `Native` (JNI).
 - `app/src/main/cpp/native.cpp`: one global projectM instance; callbacks return as bit flags from `render()`.
 - `tools/`: `fetch-packs.sh`, `make-bundle.py` (bundled presets), `make-heavy-list.py` (assets/heavy.txt),
@@ -37,6 +37,9 @@ features, build and licences; this file covers how to work on it. Keep it under 
 ## Tests (every change)
 - `./gradlew testDebugUnitTest` (JUnit + Robolectric, `app/src/test`) and `python3 -m unittest discover -s
   tools/tests`. CI runs both on every push (`.github/workflows/tests.yml`).
+- UI (`app/src/androidTest`, emulator only): `./gradlew assembleDebug assembleDebugAndroidTest`, install both APKs
+  with `adb -s emulator-5554`, then `am instrument -w io.github.sinisk3r.visualizer.test/androidx.test.runner.AndroidJUnitRunner`
+  (not `connectedAndroidTest`: it installs on every device, the TV too).
 - New logic comes with a test in the same commit; a bug fix comes with a test that failed before it.
 
 ## Testing off the TV (the TV is often busy)
