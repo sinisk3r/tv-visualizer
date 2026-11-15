@@ -16,7 +16,7 @@ recorded or sent.
 
 Menu (left side; Up/Down moves, OK toggles or opens, Left/Right changes a value, Back goes back):
 - Hold this preset (forever), ★ Favourite, Hide this preset
-- Time per preset (15 s to 5 min), Picture (Auto or a fixed 480p/540p/720p/1080p), Switch on big beats,
+- Time per preset (15 s to 5 min), Picture (Smooth or Sharp auto, or a fixed 480p/540p/720p/1080p), Switch on big beats,
   Skip heavy presets, Skip deaf presets
 - Styles: each style opens a page with "Play this style" and one switch per sub-style
 - Presets: Get all 9,795 presets, Favourites, Unhide all, Re-test picture sizes

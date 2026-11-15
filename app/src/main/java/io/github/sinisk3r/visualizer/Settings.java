@@ -15,10 +15,13 @@ final class Settings {
     static final int[] DURATIONS = {15, 30, 60, 120, 300};
     /** Render heights (16:9). The display scales the picture up; lower = smoother on slow TV GPUs. */
     static final int[] HEIGHTS = {480, 540, 720, 1080};
-    /** renderHeight value meaning "Auto": each preset gets the height it runs smoothly at on this TV. */
+    /** renderHeight value meaning "Auto, smooth" (the default): each preset gets the largest height it runs at
+     *  45 fps or more on this TV. Motion that keeps up with the music matters more than sharpness. */
     static final int AUTO = 0;
+    /** renderHeight value meaning "Auto, sharp": the largest height that still runs 24 fps or more. */
+    static final int AUTO_SHARP = 1;
     /** Choices in the menu, in order. */
-    static final int[] PICTURE_CHOICES = {AUTO, 480, 540, 720, 1080};
+    static final int[] PICTURE_CHOICES = {AUTO, AUTO_SHARP, 480, 540, 720, 1080};
 
     private final SharedPreferences prefs;
     private volatile int durationSec;
@@ -67,7 +70,9 @@ final class Settings {
     boolean beatCuts() { return beatCuts; }
     /** The chosen picture: AUTO or a fixed height. */
     int renderHeight() { return renderHeight; }
-    boolean isAuto() { return renderHeight == AUTO; }
+    boolean isAuto() { return renderHeight == AUTO || renderHeight == AUTO_SHARP; }
+    /** Auto picture steps a preset down below this frame rate. */
+    float autoSlowFps() { return renderHeight == AUTO_SHARP ? 24f : 45f; }
     boolean skipHeavy() { return skipHeavy; }
 
     void setSkipHeavy(boolean on) {
@@ -103,7 +108,13 @@ final class Settings {
         int i = 0;
         while (i < PICTURE_CHOICES.length - 1 && PICTURE_CHOICES[i] != renderHeight) i++;
         i = Math.max(0, Math.min(PICTURE_CHOICES.length - 1, i + delta));
+        int before = renderHeight;
         renderHeight = PICTURE_CHOICES[i];
+        // Sizes learned for smooth do not fit sharp and back: measure again.
+        if ((before == AUTO || before == AUTO_SHARP) && (renderHeight == AUTO || renderHeight == AUTO_SHARP)
+                && before != renderHeight) {
+            forgetLearned();
+        }
         prefs.edit().putInt("renderHeight", renderHeight).apply();
     }
 

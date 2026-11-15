@@ -30,7 +30,6 @@ final class VizRenderer implements GLSurfaceView.Renderer {
     private long blendOnce;                          // a blend length for the next change only (0: default)
     private static final long SETTLE_MS = 1500;      // after a load or resize
     private static final long WINDOW_MS = 3000;      // one measurement
-    private static final float SLOW_FPS = 24f;       // below this looks choppy: step down
     private static final float FAST_FPS = 55f;       // at or above this the GPU has room
     private static final long PROBE_AFTER_MS = 10_000; // smooth this long at a lowered size: try one step up
     private static final float TOO_SLOW_FPS = 20f;   // below this at the lowest size: the preset is too heavy here
@@ -265,7 +264,7 @@ final class VizRenderer implements GLSurfaceView.Renderer {
             if (settings.skipHeavy() && !locked) dropCurrent(true);
             return;
         }
-        if (fps < SLOW_FPS && surfaceHeight > Settings.HEIGHTS[0]) {
+        if (fps < settings.autoSlowFps() && surfaceHeight > Settings.HEIGHTS[0]) {
             int down = Settings.lower(surfaceHeight);
             Log.i(TAG, String.format("auto: %.0f fps at %dp, down to %dp: %s", fps, surfaceHeight, down, name));
             settings.learn(name, down);

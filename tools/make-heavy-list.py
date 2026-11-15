@@ -2,8 +2,8 @@
 """Lists presets too heavy for TV-class hardware, for the app's "Skip heavy presets" option.
 
 A preset is heavy when HEAVY_SHAPES or more of its custom shape instances are still drawn one at a time. Since
-the shape batching patch (patches/projectm/0001), instances are drawn in batches, except non-additive shapes
-with a border: each of those flushes the batch and draws its outline on its own, so these presets crawl on a TV
+the shape batching patches (patches/projectm/0001, 0002), instances are drawn in batches, except textured
+non-additive shapes with a border: each of those flushes the batch and draws its outline on its own, so these presets crawl on a TV
 whatever the picture size. Measured at 480p on a Mali-G52 TV with 4 x Cortex-A73 at 1.39 GHz (15-Nov-2026,
 docs/performance.md): 1,000+ unbatched instances ran 10-12 fps, 200-300 ran 29-31 fps, 100 or fewer 39-60 fps
 (even with 1,536 instances in all). The list goes to app/src/main/assets/heavy.txt as
@@ -21,7 +21,7 @@ HEAVY_SHAPES = 500
 
 
 def shape_instances(text):
-    """Instances of non-additive shapes with a border: the ones still drawn one at a time."""
+    """Instances of textured, non-additive shapes with a border: the ones still drawn one at a time."""
     kv = dict(re.findall(r"^([A-Za-z_0-9]+)=(.*)$", text, re.M))
     total = 0
     for i in range(4):
@@ -35,7 +35,10 @@ def shape_instances(text):
             border = True
         if re.search(r"\badditive\s*=", per_frame):
             additive = False
-        if border and not additive:
+        textured = kv.get(f"shapecode_{i}_textured", "0").strip() == "1" or bool(
+            re.search(r"\btextured\s*=", per_frame))
+        # Since patch 0002, borders of untextured shapes are batched too: only textured ones stay one at a time.
+        if border and not additive and textured:
             total += int(float(kv.get(f"shapecode_{i}_num_inst", "1") or 1))
     return total
 

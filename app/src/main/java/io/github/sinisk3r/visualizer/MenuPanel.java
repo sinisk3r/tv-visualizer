@@ -259,7 +259,8 @@ final class MenuPanel {
     private String pictureLabel() {
         if (!settings.isAuto()) return settings.renderHeight() + "p";
         File p = host.currentPreset();
-        return p == null ? "Auto" : "Auto · " + settings.learnedHeight(p.getName()) + "p";
+        String mode = settings.renderHeight() == Settings.AUTO_SHARP ? "Sharp" : "Smooth";
+        return p == null ? mode : mode + " · " + settings.learnedHeight(p.getName()) + "p";
     }
 
     private String styleValue(String style) {

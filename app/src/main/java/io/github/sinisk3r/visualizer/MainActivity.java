@@ -84,11 +84,15 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
         }
     }
 
+    /** Started by the adb test hook: play state is not saved. */
+    private boolean testRun;
+
     private void startVisuals(PresetLibrary library) {
         if (isDestroyed()) return;
         // Test hook (adb): start on one preset, held, at a fixed picture height, without touching saved settings:
         // am start -n .../.MainActivity --es preset <path on the TV> --ei height 480
         String testPreset = getIntent().getStringExtra("preset");
+        testRun = testPreset != null;
         int testHeight = getIntent().getIntExtra("height", 0);
         if (testHeight > 0) settings.overrideHeight(testHeight);
         renderer = new VizRenderer(library, settings, library.textureSearchPath(this), this,
@@ -266,7 +270,8 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
     public void onPresetShown(String category, File p, boolean locked, boolean userAction) {
         shownPreset = p;
         shownLocked = locked;
-        prefs.edit()
+        // A test run (adb: --es preset) must not leave its held preset behind for the next normal start.
+        if (!testRun) prefs.edit()
                 .putString("category", category)
                 .putString("preset", p == null ? null : p.getPath())
                 .putBoolean("locked", locked)
