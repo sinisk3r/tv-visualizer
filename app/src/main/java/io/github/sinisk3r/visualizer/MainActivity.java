@@ -19,13 +19,14 @@ import android.view.WindowManager;
 import android.widget.TextView;
 
 import java.io.File;
+import java.util.List;
 
 /**
  * Full-screen MilkDrop visuals that follow whatever the device is playing (Spotify, YouTube, ...).
  * Remote: Left/Right = previous/next preset, Up/Down = style (category), 0-9 = channel number, OK = the transport
  * bar (MenuPanel). A now-playing tag shows top right on every preset change ("Show what's playing").
  */
-public class MainActivity extends Activity implements VizRenderer.Listener, MenuPanel.Host {
+public class MainActivity extends Activity implements VizRenderer.Listener, MenuPanel.Host, ZeroPanel.Host {
     private static final String TAG = "Visualizer";
     private static final int REQ_AUDIO = 1;
     private static final long OVERLAY_MS = 4000;
@@ -89,7 +90,17 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
         new Thread(() -> {
             try {
                 PresetLibrary library = new PresetLibrary(this);
-                ui.post(() -> startVisuals(library));
+                WatchHistory h = loadHistory();
+                List<String> featured = loadFeatured();
+                ui.post(() -> {
+                    history = h;
+                    lists = new SmartLists(new SmartLists.Source() {
+                        public List<File> all() { return library.all; }
+                        public File byName(String name) { return library.byName(name); }
+                        public boolean hidden(File f) { return settings.isHidden(f.getName()); }
+                    }, h, featured);
+                    startVisuals(library);
+                });
             } catch (Exception e) {
                 Log.e(TAG, "preset unpack failed", e);
                 onError("Could not unpack presets: " + e.getMessage());
@@ -128,6 +139,9 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
         renderer.pacing = getIntent().getBooleanExtra("pace", true);  // test hook: --ez pace false
         renderer.innerHeight = getIntent().getIntExtra("inner", 0);    // test hook: --ei inner 480
         menu = new MenuPanel(this, settings, library, this);
+        menu.setPanels(new FindPanel(this, settings, library, lists, thumbDir(), this),
+                new ZeroPanel(this, settings, library, lists, this));
+        thumbs = new ThumbGrabber(thumbDir(), io);
 
         glView = new GLSurfaceView(this);
         glView.setFocusable(true);
@@ -164,6 +178,7 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
         @Override
         public void onSurfaceCreated(javax.microedition.khronos.opengles.GL10 gl,
                                      javax.microedition.khronos.egl.EGLConfig config) {
+            thumbs.contextLost();
             inner.onSurfaceCreated(gl, config);
         }
 
@@ -171,24 +186,38 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
         public void onSurfaceChanged(javax.microedition.khronos.opengles.GL10 gl, int width, int height) {
             pictureHeight = height;
             fpsMeter.reset();
+            thumbs.surface(width, height);
             inner.onSurfaceChanged(gl, width, height);
         }
 
         @Override
         public void onDrawFrame(javax.microedition.khronos.opengles.GL10 gl) {
             inner.onDrawFrame(gl);
-            fpsMeter.frame(android.os.SystemClock.uptimeMillis());
+            long now = android.os.SystemClock.uptimeMillis();
+            fpsMeter.frame(now);
+            // Find's preview: a small picture of each preset once it has played 10 s (after the frame is drawn,
+            // before it is swapped). Does nothing on other frames.
+            thumbs.frame(inner.currentPreset(), now);
         }
     }
 
+    /** OK: the bar. */
     private void openMenu() {
+        openMenu(-1);
+    }
+
+    /** `find` -2: the 0-list; -1: just the bar; else the bar with Find on that list. */
+    private void openMenu(int find) {
         // The tag would repeat what the bar shows.
         overlay.animate().cancel();
         ui.removeCallbacks(hideOverlay);
         overlay.setVisibility(View.GONE);
         // Focus must stay in the menu: the full-screen GL view would otherwise take it from the edges.
         glView.setFocusable(false);
-        menu.open();
+        if (find == -2) menu.openZero();
+        else if (find >= 0) menu.openFind(find);
+        else if (!menu.isOpen()) menu.open();
+        watchCovered(true);
         updateCovered();
         ui.removeCallbacks(tick);
         ui.post(tick);
@@ -196,6 +225,7 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
 
     private void closeMenu() {
         menu.close();
+        watchCovered(false);
         updateCovered();
         glView.setFocusable(true);
         glView.requestFocus();
@@ -210,12 +240,18 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
         hideSystemBars();
         if (glView != null) glView.onResume();
         startAudio();
+        File p = shownPreset;
+        if (p != null && history != null) watch.show(p.getName(), android.os.SystemClock.uptimeMillis());
     }
 
     @Override
     protected void onPause() {
         isResumedNow = false;
         if (demo.isOn()) demo.stop();
+        if (history != null) {
+            record(watch.end(android.os.SystemClock.uptimeMillis()));
+            saveHistory();
+        }
         stopAudio();
         if (glView != null) glView.onPause();
         super.onPause();
@@ -347,6 +383,11 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
     }
 
     private boolean handleKey(int keyCode) {
+        // 0 first opens the 0-list (favourites 01..., playlists 001...); a 0 inside a number (10, 205) stays a digit.
+        if (keyCode == KeyEvent.KEYCODE_0 && !typed.isActive()) {
+            openMenu(-2);
+            return true;
+        }
         if (keyCode >= KeyEvent.KEYCODE_0 && keyCode <= KeyEvent.KEYCODE_9) {
             typeDigit(keyCode - KeyEvent.KEYCODE_0);
             return true;
@@ -403,6 +444,7 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
         ui.post(() -> {
             boolean changed = p != null && !p.equals(taggedPreset);
             if (changed || p == null) shownAt = android.os.SystemClock.uptimeMillis();
+            if (changed && isResumedNow) record(watch.show(p.getName(), android.os.SystemClock.uptimeMillis()));
             shownCategory = category;
             menu.refresh();
             menu.tick();
@@ -451,6 +493,100 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
             overlay.setAlpha(1f);
             ui.removeCallbacks(hideOverlay);
         });
+    }
+
+    // --- watch history (kept only on this TV) ---
+
+    private WatchHistory history;
+    private SmartLists lists;
+    private ThumbGrabber thumbs;
+    private final WatchTimer watch = new WatchTimer();
+    /** Saves history and thumbnails off the UI and GL threads. */
+    private final java.util.concurrent.ExecutorService io = java.util.concurrent.Executors.newSingleThreadExecutor();
+
+    private File historyFile() {
+        return new File(getFilesDir(), "history.tsv");
+    }
+
+    private File thumbDir() {
+        return new File(getFilesDir(), "thumbs");
+    }
+
+    /** Preset-scan thread. Missing or unreadable: an empty history. */
+    private WatchHistory loadHistory() {
+        File f = historyFile();
+        if (f.isFile()) {
+            try (java.io.Reader r = new java.io.InputStreamReader(new java.io.FileInputStream(f),
+                    java.nio.charset.StandardCharsets.UTF_8)) {
+                WatchHistory h = WatchHistory.read(r);
+                h.prune(System.currentTimeMillis());
+                return h;
+            } catch (java.io.IOException e) {
+                Log.w(TAG, "history unreadable", e);
+            }
+        }
+        return new WatchHistory();
+    }
+
+    /** assets/featured.txt (the user's picks); null until it ships, and Featured shows "soon". */
+    private List<String> loadFeatured() {
+        try (java.io.Reader r = new java.io.InputStreamReader(getAssets().open("featured.txt"),
+                java.nio.charset.StandardCharsets.UTF_8)) {
+            return SmartLists.parseFeatured(r);
+        } catch (java.io.IOException e) {
+            return null;
+        }
+    }
+
+    private void watchCovered(boolean on) {
+        watch.cover(on, android.os.SystemClock.uptimeMillis());
+    }
+
+    /** A showing ended: into the history if it was watched (10 s or more, menu closed). */
+    private void record(WatchTimer.Shown s) {
+        if (s == null || history == null) return;
+        // Saved at once (a small file, on the io thread): an app killed without onPause keeps what it saw.
+        if (history.add(s.name, System.currentTimeMillis(), s.seconds)) saveHistory();
+    }
+
+    private void saveHistory() {
+        WatchHistory h = history;
+        if (h == null || !h.isDirty()) return;
+        File f = historyFile();
+        io.execute(() -> {
+            File tmp = new File(f.getPath() + ".tmp");
+            try (java.io.Writer w = new java.io.OutputStreamWriter(new java.io.FileOutputStream(tmp),
+                    java.nio.charset.StandardCharsets.UTF_8)) {
+                h.write(w);
+            } catch (java.io.IOException e) {
+                Log.w(TAG, "history not saved", e);
+                return;
+            }
+            if (!tmp.renameTo(f)) Log.w(TAG, "history rename failed");
+        });
+    }
+
+    // --- Find and the 0-list (UI thread) ---
+
+    @Override
+    public void playList(String name, List<File> presets, File first) {
+        List<File> copy = new java.util.ArrayList<>(presets);
+        glView.queueEvent(() -> renderer.playList(name, copy, first));
+    }
+
+    @Override
+    public void playCategory(String category, File first) {
+        glView.queueEvent(() -> renderer.playCategory(category, first));
+    }
+
+    @Override
+    public void dismiss() {
+        if (menu.isOpen()) closeMenu();
+    }
+
+    @Override
+    public void openFind(int which) {
+        openMenu(which);
     }
 
     // --- MenuPanel.Host (UI thread) ---

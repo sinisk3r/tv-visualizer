@@ -105,6 +105,11 @@ final class PresetLibrary {
         return name == null ? null : byName.get(name);
     }
 
+    /** The preset with this file name on this TV, or null. */
+    File byName(String name) {
+        return byName.get(name);
+    }
+
     /** True when the number belongs to a preset that is only in the full pack. */
     boolean numberNeedsFullPack(int n) {
         return nameOf.containsKey(n) && byNumber(n) == null;

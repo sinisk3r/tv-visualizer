@@ -29,7 +29,8 @@ import java.util.TreeMap;
  * Bar, left to right: now playing | Previous, Next, Favourite, Hold | Shuffle, Find, Search, Settings | time | Hide
  * (alone on the far right, so it is not pressed by accident). Focus starts on Favourite. A label fades in above
  * the focused button. Cards: Settings (time per preset, Smooth or Sharp with the live frame rate, then rows to
- * Live and advanced and to About and licences), Live and advanced, Find (today's style pages), Search (built by
+ * Live and advanced and to About and licences), Live and advanced, Find (FindPanel: lists, presets, preview), a
+ * style's page (from Find's Styles), the 0-list (ZeroPanel, 0 pressed with the menu closed), Search (built by
  * SearchPanel) and the About viewer.
  *
  * Everything is built once, except the Find rows, which are built once per Find page. Changes while the menu is
@@ -74,7 +75,8 @@ final class MenuPanel {
         void play(File preset);
     }
 
-    static final int NONE = 0, SETTINGS = 1, ADVANCED = 2, ABOUT = 3, FIND = 4, SEARCH = 5;
+    /** FIND is a style's page (opened from Find's Styles list); LISTS is Find itself (FindPanel); ZERO the 0-list. */
+    static final int NONE = 0, SETTINGS = 1, ADVANCED = 2, ABOUT = 3, FIND = 4, LISTS = 5, ZERO = 6, SEARCH = 7;
     private static final long FADE_MS = 140;
 
     private final Activity act;
@@ -97,6 +99,9 @@ final class MenuPanel {
     private int panel = NONE;
     private String findPage;
     private int findReturnFocus;
+    /** Find (lists and preview) and the 0-list: their own classes, shown here as cards. */
+    private FindPanel lists;
+    private ZeroPanel zero;
 
     /** Rewrites one value in place. Static ones (bar, cards) are made once; Find's per page. */
     private final List<Runnable> values = new ArrayList<>();
@@ -143,9 +148,18 @@ final class MenuPanel {
 
             @Override
             public void openList(Keypad.Target target) {
-                // TODO(0-list): open Favourites / Playlists, or play favourite n / playlist n, once the 0 list
-                // (being built on its own branch) lands. Until then the target is only named.
-                toast(target.label() + ": coming with the favourites and playlists list.");
+                if (zero == null || lists == null) return;  // the library is still loading
+                switch (target.kind) {
+                    case FAVOURITES: openFind(FindPanel.FAVOURITES); break;
+                    case PLAYLISTS: openFind(1); break;
+                    case FAVOURITE:
+                    case PLAYLIST:
+                        if (!zero.playCode(target.kind == Keypad.Kind.PLAYLIST, target.number)) {
+                            toast(target.label() + ": nothing to play yet");
+                        }
+                        break;
+                    default: break;
+                }
             }
         });
         cardSearch = searchPanel.card();
@@ -153,6 +167,31 @@ final class MenuPanel {
         buildSettingsCard();
         buildAdvancedCard();
         buildAbout();
+    }
+
+    /** Find's lists and the 0-list, made by the activity once the library is ready. */
+    void setPanels(FindPanel lists, ZeroPanel zero) {
+        this.lists = lists;
+        this.zero = zero;
+        lists.setOpenStyle(style -> {
+            findPage = style;
+            showPanel(FIND, null);
+            buildFind(0);
+        });
+    }
+
+    /** The bar with Find open on list `which` (the 0-list's "0" or "00" then OK). */
+    void openFind(int which) {
+        if (!isOpen()) open();
+        showPanel(LISTS, null);
+        lists.show(which, false, 0);
+    }
+
+    /** The bar with the 0-list above it (0 pressed, menu closed). */
+    void openZero() {
+        open();
+        showPanel(ZERO, null);
+        zero.open();
     }
 
     boolean isOpen() {
@@ -170,6 +209,8 @@ final class MenuPanel {
         cardAdvanced.setVisibility(View.GONE);
         cardFind.setVisibility(View.GONE);
         cardSearch.setVisibility(View.GONE);
+        if (lists != null) lists.view().setVisibility(View.GONE);
+        if (zero != null) zero.view().setVisibility(View.GONE);
         about.setVisibility(View.GONE);
         bar.setVisibility(View.VISIBLE);
         scrim.setVisibility(View.VISIBLE);
@@ -185,6 +226,7 @@ final class MenuPanel {
         root.animate().cancel();
         root.setVisibility(View.GONE);
         barTitle.setSelected(false);
+        if (zero != null) zero.closed();
         panel = NONE;
     }
 
@@ -197,14 +239,25 @@ final class MenuPanel {
             case ADVANCED:
                 showPanel(SETTINGS, rowLive);
                 return true;
-            case FIND:
-                if (findPage != null) {
-                    findPage = null;
-                    buildFind(findReturnFocus);
-                    return true;
+            case FIND: {
+                // A style's page goes back to Find's Styles list, on that style.
+                String style = findPage;
+                findPage = null;
+                showPanel(LISTS, null);
+                int i = 0;
+                for (String c : library.categories) {
+                    if (c.equals(PresetLibrary.ALL)) continue;
+                    if (c.equals(style)) break;
+                    i++;
                 }
+                lists.show(FindPanel.STYLES, style != null, i);
+                return true;
+            }
+            case LISTS:
                 closePanel(find);
                 return true;
+            case ZERO:
+                return false;  // the 0-list closes with the menu
             case SETTINGS:
                 closePanel(settingsButton);
                 return true;
@@ -222,6 +275,8 @@ final class MenuPanel {
      */
     boolean handleKey(KeyEvent e) {
         if (panel == SEARCH && searchPanel.handleKey(e)) return true;
+        if (panel == ZERO) return zero.handleKey(e);
+        if (panel == LISTS && lists.handleKey(e)) return true;
         if (e.getAction() != KeyEvent.ACTION_DOWN || e.getKeyCode() != KeyEvent.KEYCODE_DPAD_DOWN) return false;
         if (panel == NONE || panel == ABOUT) return false;
         View focused = act.getCurrentFocus();
@@ -268,7 +323,7 @@ final class MenuPanel {
     // --- panels ---
 
     private Button owner(int p) {
-        return p == FIND ? find : p == SEARCH ? search : settingsButton;
+        return p == FIND || p == LISTS ? find : p == SEARCH ? search : p == ZERO ? null : settingsButton;
     }
 
     private void showPanel(int p, View focus) {
@@ -277,6 +332,11 @@ final class MenuPanel {
         cardAdvanced.setVisibility(p == ADVANCED ? View.VISIBLE : View.GONE);
         cardFind.setVisibility(p == FIND ? View.VISIBLE : View.GONE);
         cardSearch.setVisibility(p == SEARCH ? View.VISIBLE : View.GONE);
+        if (lists != null) lists.view().setVisibility(p == LISTS ? View.VISIBLE : View.GONE);
+        if (zero != null) {
+            zero.view().setVisibility(p == ZERO ? View.VISIBLE : View.GONE);
+            if (p != ZERO) zero.closed();  // its 10 s idle close is for the 0-list only, not for Find after it
+        }
         about.setVisibility(p == ABOUT ? View.VISIBLE : View.GONE);
         // The viewer covers the screen: the bar under it would only cost frames.
         bar.setVisibility(p == ABOUT ? View.GONE : View.VISIBLE);
@@ -284,8 +344,12 @@ final class MenuPanel {
         barTime.setVisibility(p == NONE ? View.VISIBLE : View.GONE);
         barHint.setVisibility(p == NONE ? View.GONE : View.VISIBLE);
         markOpen(p == NONE ? null : owner(p));
+        if (p == ZERO) {  // no bar button owns the 0-list, but Back still closes it
+            barTime.setVisibility(View.GONE);
+            barHint.setVisibility(View.VISIBLE);
+        }
         View card = p == SETTINGS ? cardSettings : p == ADVANCED ? cardAdvanced : p == FIND ? cardFind
-                : p == SEARCH ? cardSearch : p == ABOUT ? about : null;
+                : p == SEARCH ? cardSearch : p == ABOUT ? about : p == LISTS ? lists.view() : p == ZERO ? zero.view() : null;
         refresh();
         tick();
         if (card != null) fadeIn(card);
@@ -341,13 +405,13 @@ final class MenuPanel {
             changed();
         });
         find = addButton(row, R.id.b_find, R.drawable.ic_find, v -> {
-            if (panel == FIND) {
+            if (panel == FIND || panel == LISTS) {
                 closePanel(find);
                 return;
             }
             findPage = null;
-            showPanel(FIND, null);
-            buildFind(0);
+            showPanel(LISTS, null);
+            lists.show(FindPanel.FAVOURITES, false, 0);
         });
         search = addButton(row, R.id.b_search, R.drawable.ic_search, v -> {
             if (panel == SEARCH) {
@@ -384,7 +448,7 @@ final class MenuPanel {
             setIfChanged(shuffle.tip, BarText.shuffleTip(s));
             setIfChanged(prev.tip, "Previous");
             setIfChanged(next.tip, "Next");
-            setIfChanged(find.tip, "Find: styles and favourites");
+            setIfChanged(find.tip, "Find: favourites, playlists, styles");
             setIfChanged(search.tip, "Search: names and numbers");
             setIfChanged(settingsButton.tip, "Settings");
             setIfChanged(hide.tip, "Hide this preset");
@@ -755,6 +819,10 @@ final class MenuPanel {
 
     private void buildStylePage(String style) {
         findRow("‹  " + style, () -> "Back", v -> back());
+        findRow("★ Favourite this style", () -> settings.isFavouriteStyle(style) ? "Yes" : "No", v -> {
+            settings.setFavouriteStyle(style, !settings.isFavouriteStyle(style));
+            changed();
+        });
         findRow("Play this style", () -> settings.isStyleOn(style) ? "On" : "Off", v -> {
             if (settings.isStyleOn(style) && enabledStyles() <= 1) {
                 toast("Keep at least one style on.");

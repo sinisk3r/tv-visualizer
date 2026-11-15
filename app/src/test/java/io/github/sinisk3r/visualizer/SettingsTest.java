@@ -121,4 +121,25 @@ public class SettingsTest {
         assertEquals("30 s", Settings.durationLabel(30));
         assertEquals("2 min", Settings.durationLabel(120));
     }
+
+    @Test
+    public void favouritesKeepTheOrderTheyWereAddedInAcrossStarts() {
+        Settings s = new Settings(ctx);
+        s.setFavourite("b.milk", true);
+        s.setFavourite("a.milk", true);
+        s.setFavourite("c.milk", true);
+        s.setFavourite("a.milk", false);
+        s.setFavouriteStyle("Hypnotic", true);
+        Settings again = new Settings(ctx);
+        assertEquals(java.util.Arrays.asList("b.milk", "c.milk"), again.favouritesInOrder());
+        assertTrue(again.isFavouriteStyle("Hypnotic"));
+        again.hide("b.milk");
+        assertEquals(java.util.Collections.singletonList("c.milk"), again.favouritesInOrder());
+    }
+
+    @Test
+    public void setShuffleIsSaved() {
+        new Settings(ctx).setShuffle(Settings.SHUFFLE_OFF);
+        assertEquals(Settings.SHUFFLE_OFF, new Settings(ctx).shuffle());
+    }
 }
