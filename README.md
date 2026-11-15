@@ -17,7 +17,7 @@ recorded or sent.
 Menu (left side; Up/Down moves, OK toggles or opens, Left/Right changes a value, Back goes back):
 - Hold this preset (forever), ★ Favourite, Hide this preset
 - Time per preset (15 s to 5 min), Picture (Auto or a fixed 480p/540p/720p/1080p), Switch on big beats,
-  Skip heavy presets
+  Skip heavy presets, Skip deaf presets
 - Styles: each style opens a page with "Play this style" and one switch per sub-style
 - Presets: Get all 9,795 presets, Favourites, Unhide all, Re-test picture sizes
 
@@ -29,6 +29,11 @@ Skip heavy presets (on by default) leaves out presets that crawl on TV hardware 
 - 1,654 listed in `app/src/main/assets/heavy.txt` (`tools/make-heavy-list.py`): custom shapes with 200+
   instances per frame, each worked out on the CPU and drawn on its own.
 - Any preset Auto picture measures under 20 fps at 480p on this TV. "Re-test picture sizes" forgets these too.
+
+Presets are scored by how much they follow the music (`app/src/main/assets/reactivity.txt`, from
+`tools/make-reactivity-list.py`): audio traced from bass/mid/treb through the equations and shaders to what is
+drawn, plus visible waveforms. Of the full pack, 442 react to nothing (Skip deaf presets, on by default, leaves
+them out), 658 move only a waveform (played half as often) and the top quarter, 2,279, play twice as often.
 
 ## Presets
 - 400 bundled: 40 per style, picked with a fixed seed from
@@ -48,6 +53,7 @@ git submodule update --init --recursive   # projectM v4.1.8
 tools/fetch-packs.sh                       # preset + texture packs (156 MB, not committed)
 tools/make-bundle.py 40                    # 40 per style into app/src/main/assets (keeps sub-style folders)
 tools/make-heavy-list.py                   # app/src/main/assets/heavy.txt from the full pack
+tools/make-reactivity-list.py              # app/src/main/assets/reactivity.txt from the full pack
 ./gradlew assembleRelease                  # needs NDK 27.2.12479018, CMake 3.22.1, JDK 17
 adb install -r app/build/outputs/apk/release/app-release.apk
 ```

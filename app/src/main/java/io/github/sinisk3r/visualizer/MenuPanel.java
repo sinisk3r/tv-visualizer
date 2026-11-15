@@ -168,6 +168,12 @@ final class MenuPanel {
             changed();
         }, null);
 
+        addRow("Skip deaf presets", () -> settings.skipDeaf() ? "On  ·  " + deafCount() + " skipped" : "Off",
+                v -> {
+                    settings.setSkipDeaf(!settings.skipDeaf());
+                    changed();
+                }, null);
+
         addHeader("Styles  ·  " + String.format("%,d", library.all.size()) + " presets");
         for (String style : library.categories) {
             if (style.equals(PresetLibrary.ALL)) continue;
@@ -232,6 +238,15 @@ final class MenuPanel {
         int n = 0;
         for (File f : library.all) {
             if (library.heavy.contains(f.getName()) || settings.isTooSlow(f.getName())) n++;
+        }
+        return String.format("%,d", n);
+    }
+
+    /** Presets in the library that do not react to the music at all. */
+    private String deafCount() {
+        int n = 0;
+        for (File f : library.all) {
+            if (library.isDeaf(f)) n++;
         }
         return String.format("%,d", n);
     }

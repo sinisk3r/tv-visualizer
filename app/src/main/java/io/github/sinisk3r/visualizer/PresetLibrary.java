@@ -46,6 +46,10 @@ final class PresetLibrary {
     /** Presets whose custom shapes draw so many instances that they crawl on TV hardware (assets/heavy.txt,
      *  from tools/make-heavy-list.py). File names. */
     final Set<String> heavy = new HashSet<>();
+    /** How much each preset follows the music (assets/reactivity.txt, from tools/make-reactivity-list.py):
+     *  DEAF, WAVE_ONLY, SOME or STRONG. File names; presets not listed are SOME. */
+    static final int DEAF = 0, WAVE_ONLY = 1, SOME = 2, STRONG = 3;
+    private final Map<String, Integer> reactivity = new HashMap<>();
 
     PresetLibrary(Context ctx) throws IOException {
         File root = new File(ctx.getFilesDir(), "bundle");
@@ -60,6 +64,30 @@ final class PresetLibrary {
         categories.addAll(byCategory.keySet());
         byCategory.put(ALL, all);
         loadHeavy(ctx.getAssets());
+        loadReactivity(ctx.getAssets());
+    }
+
+    private void loadReactivity(AssetManager assets) {
+        try (java.io.BufferedReader in = new java.io.BufferedReader(new java.io.InputStreamReader(
+                assets.open("reactivity.txt"), java.nio.charset.StandardCharsets.UTF_8))) {
+            for (String line; (line = in.readLine()) != null; ) {
+                int tab = line.lastIndexOf('\t');
+                if (tab > 0 && line.charAt(0) >= '0' && line.charAt(0) <= '3') {
+                    reactivity.put(line.substring(tab + 1), line.charAt(0) - '0');
+                }
+            }
+        } catch (IOException e) {
+            android.util.Log.w("Visualizer", "no reactivity list", e);
+        }
+    }
+
+    int reactivityOf(File f) {
+        Integer r = reactivity.get(f.getName());
+        return r != null ? r : SOME;
+    }
+
+    boolean isDeaf(File f) {
+        return reactivityOf(f) == DEAF;
     }
 
     private void loadHeavy(AssetManager assets) {
@@ -182,9 +210,30 @@ final class PresetLibrary {
         return n.replace('_', ' ');
     }
 
-    static List<File> shuffled(List<File> list) {
-        List<File> copy = new ArrayList<>(list);
-        Collections.shuffle(copy);
-        return copy;
+    /** Play weights: strongly reactive presets come up about twice as often as most, waveform-only ones half
+     *  as often. */
+    private static double weight(int reactivity) {
+        switch (reactivity) {
+            case STRONG: return 2.0;
+            case WAVE_ONLY: case DEAF: return 0.5;
+            default: return 1.0;
+        }
+    }
+
+    /** A weighted shuffle (Efraimidis-Spirakis: sort by u^(1/w)). Every preset still appears once, but heavier
+     *  ones tend to come earlier, so they play more often in the hours it takes to get through a long list. */
+    List<File> shuffled(List<File> list) {
+        java.util.Random rnd = new java.util.Random();
+        int n = list.size();
+        double[] key = new double[n];
+        Integer[] idx = new Integer[n];
+        for (int i = 0; i < n; i++) {
+            idx[i] = i;
+            key[i] = Math.log(1.0 - rnd.nextDouble()) / weight(reactivityOf(list.get(i)));  // log(u)/w
+        }
+        java.util.Arrays.sort(idx, (a, b) -> Double.compare(key[b], key[a]));
+        List<File> out = new ArrayList<>(n);
+        for (Integer i : idx) out.add(list.get(i));
+        return out;
     }
 }

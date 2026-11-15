@@ -112,7 +112,8 @@ final class VizRenderer implements GLSurfaceView.Renderer {
         List<File> list = library.byCategory.get(cat);
         if (list == null) return;
         for (File f : list) {
-            if (!settings.isHidden(f.getName()) && !isHeavy(f) && settings.isSubOn(cat, library.subStyleOf(f))) {
+            if (!settings.isHidden(f.getName()) && !isHeavy(f) && !(settings.skipDeaf() && library.isDeaf(f))
+                    && settings.isSubOn(cat, library.subStyleOf(f))) {
                 out.add(f);
             }
         }
@@ -133,7 +134,7 @@ final class VizRenderer implements GLSurfaceView.Renderer {
         }
         categories = cats;
         if (!categories.contains(category)) category = PresetLibrary.ALL;
-        order = PresetLibrary.shuffled(visible(category));
+        order = library.shuffled(visible(category));
         position = -1;
         if (keepPath != null) {
             for (int i = 0; i < order.size(); i++) {
@@ -314,7 +315,7 @@ final class VizRenderer implements GLSurfaceView.Renderer {
     void changeCategory(int delta) {
         int i = Math.max(0, categories.indexOf(category));
         category = categories.get(Math.floorMod(i + delta, categories.size()));
-        order = PresetLibrary.shuffled(visible(category));
+        order = library.shuffled(visible(category));
         position = -1;
         step(1, true, true);
     }

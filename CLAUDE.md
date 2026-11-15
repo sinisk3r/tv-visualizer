@@ -12,6 +12,7 @@ features, build and licences; this file covers how to work on it. Keep it under 
   - `PresetLibrary` (scan, styles, sub-styles), `PackDownloader` (full pack), `Settings` (prefs), `Native` (JNI).
 - `app/src/main/cpp/native.cpp`: one global projectM instance; callbacks return as bit flags from `render()`.
 - `tools/`: `fetch-packs.sh`, `make-bundle.py` (bundled presets), `make-heavy-list.py` (assets/heavy.txt),
+  `make-reactivity-list.py` (assets/reactivity.txt: audio use, play weights),
   `colour-logo.py` (needs Pillow + numpy).
 - `docs/performance.md`: what makes presets slow on TVs, measurements, the planned projectM shape fix.
 - `third_party/projectm`: submodule at v4.1.8. Preset/texture packs in `third_party/presets-*` are gitignored.

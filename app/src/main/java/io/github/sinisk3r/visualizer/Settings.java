@@ -25,6 +25,7 @@ final class Settings {
     private volatile boolean beatCuts;
     private volatile int renderHeight;
     private volatile boolean skipHeavy;
+    private volatile boolean skipDeaf;
     /** Presets measured too slow on this TV even at the lowest picture size. File names. */
     private final SharedPreferences tooSlow;
     /** Auto picture: preset file name to the height it last ran smoothly at on this TV. */
@@ -40,6 +41,7 @@ final class Settings {
         renderHeight = prefs.getInt("renderHeight", AUTO);
         learned = ctx.getSharedPreferences("auto_picture", Context.MODE_PRIVATE);
         skipHeavy = prefs.getBoolean("skipHeavy", true);
+        skipDeaf = prefs.getBoolean("skipDeaf", true);
         tooSlow = ctx.getSharedPreferences("too_slow", Context.MODE_PRIVATE);
         hidden = Collections.unmodifiableSet(new HashSet<>(prefs.getStringSet("hidden", Collections.emptySet())));
         disabledStyles = Collections.unmodifiableSet(
@@ -58,6 +60,14 @@ final class Settings {
     void setSkipHeavy(boolean on) {
         skipHeavy = on;
         prefs.edit().putBoolean("skipHeavy", on).apply();
+    }
+
+    /** Skip presets that do not react to the music at all (assets/reactivity.txt level 0). */
+    boolean skipDeaf() { return skipDeaf; }
+
+    void setSkipDeaf(boolean on) {
+        skipDeaf = on;
+        prefs.edit().putBoolean("skipDeaf", on).apply();
     }
 
     boolean isTooSlow(String presetName) { return tooSlow.contains(presetName); }
