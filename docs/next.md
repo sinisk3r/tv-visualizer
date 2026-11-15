@@ -4,31 +4,31 @@ The queue for this repo, top item first (the user's order: low effort, high valu
 When an item is done, move it to "Done" with the date and commit. Add new items with a ready-to-paste prompt.
 Read `CLAUDE.md` first, especially "Testing off the TV".
 
-## D. Music feel: quick wins first (before A)
+## D2. Music feel: tune and next steps (after A, or when A is blocked)
 
-The user wants the visuals to follow the music much more closely. Order: low effort, high value first. The audio
-feed fix is done (see Done). The user's setup is a soundbar with no noticeable delay, and after the fix it
-"feels a lot better" (15-Nov-2026), so the delay setting is parked. Check `adb logcat -s Visualizer | grep audio:`
-for level and gain.
+Steps 1-2 of D are done (see Done). What the first TV test (15-Nov-2026, Spotify) left open:
+- A 1 s pause in the "Animals" intro counted as a gap and switched the preset mid-song. Harmless (it was a pause in
+  the music) but a longer minimum gap (0.4 s now; real song gaps were 1.6-3.2 s) would skip it.
+- The 0.7 s blend on gaps has not been judged by eye yet.
+- `gap:` logs the level before the gap against the 12 s level: 0.45x at a song's fade out. If drops after silence
+  show > 1 (a loud build), this could tell songs from drops (cut on drops, blend on songs).
 
 ```
-Read CLAUDE.md and docs/next.md item D. Goal: the visuals feel locked to the music. Quick wins, in order:
-1. Reactivity: tools/ script that scores each preset's audio use (bass/mid/treb/_att/vol references in equations
-   and shaders, waveform drawn, custom waves reading value1/value2). About 2% of the pack uses no audio at all
-   (210 presets) and 3% only draw the waveform. Ship a list; skip the "no audio" ones by default (like heavy.txt)
-   and play the strongly reactive ones more often.
-2. Song-aware switching: switch preset on a song change (a gap of near-silence, or a sharp drop and rise in the
-   slow AGC level in native.cpp) and on big drops, not only on the 30 s timer. Keep beat cuts.
-Measure what you can on the TV, ask the user to judge by eye, and commit each step separately.
+Read CLAUDE.md and docs/next.md item D2. Goal: tune song-aware switching on the TV with real music.
+1. Watch `adb logcat -s Visualizer | grep -E "gap:|drop:"` next to the track changes from
+   `adb shell dumpsys media_session` (Spotify). Ask the user to play a few albums and EDM tracks with drops.
+2. Count true and false switches. Tune SONG_GAP_SECONDS, DROP_RATIO and the gap blend in native.cpp/VizRenderer.
+3. Ask the user to judge by eye. Commit.
 ```
 
 Parked: a visual delay setting (-100..+300 ms) for setups with audio lag (Bluetooth); not needed on the
 user's soundbar.
 
-Later (bigger): match preset energy to the music's energy; time blends to the beat (tempo detection);
-remember per song which preset looked best (needs permission to read what's playing).
+Later (bigger): match preset energy to the music's energy (reactivity.txt has the scores); time blends to the
+beat (tempo detection); use the media session for exact song changes and per-song memory (needs notification
+access).
 
-## A. Batch projectM custom shapes (engine), after D
+## A. Batch projectM custom shapes (engine)
 
 Shape-heavy presets crawl on TVs whatever the picture size. Background, measurements and plan:
 `docs/performance.md`.
@@ -81,6 +81,10 @@ licence (e.g. OFL pixel fonts), with the licence noted in README.
   hardware (CPU and GPU are logged at start as `device ...` and in the projectM line).
 
 ## Done
+- 15-Nov-2026: song-aware switching: a gap in the music (new song or a drop after silence) switches on the first
+  beat; a drop without a gap cuts (`a933637`).
+- 15-Nov-2026: reactivity scores (`tools/make-reactivity-list.py`): 442 deaf presets skipped by default, top
+  quarter played twice as often (`82bb9f1`).
 - 15-Nov-2026: audio feed fixed. The capture was normalized to full level every 21 ms, which flattened loudness
   swings (cv 0.18-0.25 against 0.33-0.66 as played). Now as played, plus a slow 4 s gain in native.cpp.
 - 15-Nov-2026: smoother switches, shader warmer, blends on remote keys, Skip heavy presets, menu art removed
