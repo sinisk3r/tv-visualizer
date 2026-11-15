@@ -5,6 +5,8 @@ final class Native {
     static final int EV_SWITCH = 1;    // projectM asks for a new preset (timer or beat)
     static final int EV_HARD_CUT = 2;  // ...as a hard cut, so switch without a blend
     static final int EV_FAILED = 4;    // the last preset failed to load or compile
+    static final int EV_SONG = 8;      // sound came back after a gap (new song or drop): quick blend
+    static final int EV_DROP = 16;     // the music got much louder at once: cut to the next preset
 
     static {
         System.loadLibrary("visualizer");

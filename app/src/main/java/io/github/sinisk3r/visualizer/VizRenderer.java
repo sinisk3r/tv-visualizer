@@ -26,6 +26,8 @@ final class VizRenderer implements GLSurfaceView.Renderer {
     // buffers), since those dips would wrongly mark a smooth preset as slow.
     private static final long BLEND_MS = 3000;       // blend length for timed and beat changes
     private static final long KEY_BLEND_MS = 1500;   // shorter for remote presses, so the remote feels quick
+    private static final long GAP_BLEND_MS = 700;    // after a gap in the music: on the first beat of what follows
+    private long blendOnce;                          // a blend length for the next change only (0: default)
     private static final long SETTLE_MS = 1500;      // after a load or resize
     private static final long WINDOW_MS = 3000;      // one measurement
     private static final float SLOW_FPS = 24f;       // below this looks choppy: step down
@@ -200,6 +202,11 @@ final class VizRenderer implements GLSurfaceView.Renderer {
         if ((ev & Native.EV_FAILED) != 0) {
             // Drop presets that do not compile on this GPU, so they never come back this session.
             dropCurrent(false);
+        } else if ((ev & Native.EV_DROP) != 0 && !locked) {
+            step(1, !settings.beatCuts(), false);  // a cut, or a blend when big-beat cuts are off
+        } else if ((ev & Native.EV_SONG) != 0 && !locked) {
+            blendOnce = GAP_BLEND_MS;
+            step(1, true, false);
         } else if ((ev & Native.EV_SWITCH) != 0 && !locked) {
             step(1, (ev & Native.EV_HARD_CUT) == 0, false);
         }
@@ -345,7 +352,8 @@ final class VizRenderer implements GLSurfaceView.Renderer {
     }
 
     private void show(File preset, boolean smooth, boolean userAction) {
-        long blend = userAction ? KEY_BLEND_MS : BLEND_MS;
+        long blend = blendOnce > 0 ? blendOnce : userAction ? KEY_BLEND_MS : BLEND_MS;
+        blendOnce = 0;
         if (ready) {
             long t0 = System.nanoTime();
             Native.loadPreset(preset.getPath(), smooth, blend / 1000f);

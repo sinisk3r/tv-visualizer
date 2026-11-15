@@ -25,6 +25,9 @@ std::atomic<int> events{0};
 constexpr int EV_SWITCH = 1;     // projectM wants a new preset (timer or beat)
 constexpr int EV_HARD_CUT = 2;   // ...and it was a hard cut (switch without a blend)
 constexpr int EV_FAILED = 4;     // last preset failed to load or compile
+constexpr int EV_SONG = 8;       // a new song started (a gap of near-silence, then sound)
+constexpr int EV_DROP = 16;      // the music got much louder at once (a "drop")
+std::chrono::steady_clock::time_point presetLoadedAt;
 
 void onSwitch(bool hard, void*) { events |= EV_SWITCH | (hard ? EV_HARD_CUT : 0); }
 void onFailed(const char* file, const char* msg, void*) {
@@ -153,6 +156,7 @@ Java_io_github_sinisk3r_visualizer_Native_loadPreset(JNIEnv* env, jclass, jstrin
     if (smooth) projectm_set_soft_cut_duration(pm, blendSec);
     const char* p = env->GetStringUTFChars(path, nullptr);
     projectm_load_preset_file(pm, p, smooth);
+    presetLoadedAt = std::chrono::steady_clock::now();
     env->ReleaseStringUTFChars(path, p);
 }
 
@@ -185,6 +189,60 @@ std::chrono::steady_clock::time_point agcLogAt;
 float agcLogIn = 0, agcLogGain = 0;
 int agcLogN = 0;
 
+// Song-aware switching. Levels are the raw capture RMS (before the gain), smoothed over three time spans.
+// A gap: the 0.25 s level stays under 10% of the 12 s level for 0.4 s or more, then comes back. That is a new
+// song or a drop (many EDM drops follow a second or two of silence); loudness cannot tell them apart (on Martin
+// Garrix "Animals" the drop came back at 0.46x the loud build before it), and both are good moments to switch.
+// The switch fires the moment sound returns, so it lands on the first beat.
+// A drop without a gap: the 1.5 s level reaches twice the 12 s level (a loud section after a quieter build).
+constexpr float SONG_GAP_RATIO = 0.10f;
+constexpr float SONG_GAP_SECONDS = 0.4f;
+constexpr float SONG_BACK_RATIO = 0.30f;  // sound is back when the 0.25 s level passes 30% of the 12 s level
+constexpr float DROP_RATIO = 2.0f;
+constexpr float SONG_MIN_PRESET_S = 4.0f;  // never switch a preset that has just come on
+constexpr float DROP_MIN_PRESET_S = 8.0f;
+constexpr float DROP_COOLDOWN_S = 20.0f;
+float lvFast = 0, lvMid = 0, lvLong = 0;
+float quietFor = 0;         // seconds the fast level has been in a gap
+float gapLength = 0;        // the last gap long enough to count, waiting for sound to come back
+float gapTrend = 0;         // 1.5 s level against the 12 s level as the gap began (< 1: a fade out), logged
+float sinceSong = 1e9f, sinceDrop = 1e9f;
+
+void follow(float& level, float rms, float dt, float seconds) {
+    float a = std::exp(-dt / seconds);
+    level = level == 0.0f ? rms : level * a + rms * (1.0f - a);
+}
+
+void detectSong(float rms, float dt, std::chrono::steady_clock::time_point now) {
+    follow(lvFast, rms, dt, 0.25f);
+    follow(lvMid, rms, dt, 1.5f);
+    sinceSong += dt;
+    sinceDrop += dt;
+    float presetAge = std::chrono::duration<float>(now - presetLoadedAt).count();
+    float gapLevel = std::max(AGC_SILENCE, lvLong * SONG_GAP_RATIO);
+    if (lvFast < gapLevel) {
+        if (quietFor == 0) gapTrend = lvMid / std::max(lvLong, 1e-6f);
+        quietFor += dt;
+        if (quietFor >= SONG_GAP_SECONDS) gapLength = quietFor;
+        return;  // keep the 12 s level from the music before the gap
+    }
+    quietFor = 0;
+    follow(lvLong, rms, dt, 12.0f);
+    if (gapLength > 0 && lvFast > lvLong * SONG_BACK_RATIO) {
+        LOG("gap: %.1f s, level before it %.2fx the 12 s level", gapLength, gapTrend);
+        gapLength = 0;
+        sinceSong = 0;
+        lvMid = lvFast;  // the jump back from the gap is not a second drop
+        if (presetAge >= SONG_MIN_PRESET_S) events |= EV_SONG;
+        return;
+    }
+    if (lvMid > lvLong * DROP_RATIO && sinceDrop > DROP_COOLDOWN_S && sinceSong > 5.0f) {
+        LOG("drop: 1.5 s level %.3f, %.1fx the 12 s level", lvMid, lvMid / lvLong);
+        sinceDrop = 0;
+        if (presetAge >= DROP_MIN_PRESET_S) events |= EV_DROP;
+    }
+}
+
 // 8-bit unsigned mono PCM, straight from android.media.audiofx.Visualizer.getWaveForm().
 JNIEXPORT void JNICALL
 Java_io_github_sinisk3r_visualizer_Native_addPcm(JNIEnv* env, jclass, jbyteArray data, jint count) {
@@ -211,6 +269,7 @@ Java_io_github_sinisk3r_visualizer_Native_addPcm(JNIEnv* env, jclass, jbyteArray
     float gain = agcLevel < AGC_SILENCE ? 1.0f : std::min(AGC_MAX_GAIN, std::max(1.0f, AGC_TARGET_RMS / agcLevel));
     for (int i = 0; i < count; i++) pcmBuf[i] = std::max(-1.0f, std::min(1.0f, pcmBuf[i] * gain));
     projectm_pcm_add_float(pm, pcmBuf, count, PROJECTM_MONO);
+    detectSong(rms, dt, now);
 
     agcLogIn += rms;
     agcLogGain += gain;
