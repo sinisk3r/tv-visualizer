@@ -128,6 +128,12 @@ real HDR means expanding them: render as now, then a final pass maps SDR to HDR1
 inverse tone curve that lifts only the brightest parts (glows, flashes, beat peaks) while mid-tones stay put.
 Needs an EGL surface with a 10-bit or FP16 format and `EGL_EXT_gl_colorspace_bt2020_pq`.
 
+Checked 15-Nov-2026: **unlikely on this TV.** EGL has `EGL_KHR_gl_colorspace`, `EGL_EXT_pixel_format_float` and
+the HDR metadata extensions, but no `bt2020_pq` or scRGB colour space, and SurfaceFlinger says `Device supports
+wide color: 0`. HDR here is probably the video plane only. One cheap test left: an RGBA1010102 surface with
+`ANativeWindow_setBuffersDataSpace(ADATASPACE_BT2020_PQ)` and SMPTE2086 metadata, then see whether the TV
+switches to HDR mode. Parked until the menu (B) ships.
+
 ```
 Read CLAUDE.md. Check the TV's EGL extensions for bt2020_pq / scrgb and 10-bit configs. If present, build a
 test: final blit with an inverse tone curve into a PQ surface, behind a hidden switch. Compare side by side on
