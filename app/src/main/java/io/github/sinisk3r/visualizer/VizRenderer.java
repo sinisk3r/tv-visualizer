@@ -34,7 +34,9 @@ final class VizRenderer implements GLSurfaceView.Renderer {
     private boolean switchAfterGrace;
     private static final long SETTLE_MS = 1500;      // after a load or resize
     private static final long WINDOW_MS = 3000;      // one measurement
-    private final FrameRatePolicy policy = new FrameRatePolicy();
+    /** Auto picture: the inner height projectM draws at, chosen every half second. */
+    private ResolutionController resolution = ResolutionController.smooth();
+    private static final long INNER_SETTLE_MS = 250;  // after an inner size change
 
     interface Listener {
         /** Called on the GL thread whenever the shown preset, style or hold changes. */
@@ -85,8 +87,6 @@ final class VizRenderer implements GLSurfaceView.Renderer {
     private long measureFrom;   // uptime ms; frames before this are not counted
     private long windowStart;
     private int windowFrames;
-    /** Presets that already tried a step up this session, so a borderline one cannot flip back and forth. */
-    private final Set<String> probed = new HashSet<>();
 
     VizRenderer(PresetLibrary library, Settings settings, String textureDir, Listener listener,
                 String startCategory, String startPreset, boolean startLocked) {
@@ -250,10 +250,11 @@ final class VizRenderer implements GLSurfaceView.Renderer {
     private void settle(long ms) {
         measureFrom = SystemClock.uptimeMillis() + ms;
         windowStart = 0;
-        policy.reset();
+        resolution.reset();
     }
 
-    /** Measures the frame rate in 3 s windows once a preset has settled; Auto picture and pacing act on it. */
+    /** Measures the frame rate once a preset has settled (Auto: half-second windows, else 3 s); variable
+     *  resolution and pacing act on it. */
     private void measure() {
         File p = currentPreset();
         if (p == null || surfaceHeight == 0) return;
@@ -269,39 +270,38 @@ final class VizRenderer implements GLSurfaceView.Renderer {
             return;
         }
         windowFrames++;
-        if (now - windowStart < WINDOW_MS) return;
+        if (now - windowStart < (settings.isAuto() ? ResolutionController.WINDOW_MS : WINDOW_MS)) return;
         float fps = windowFrames * 1000f / (now - windowStart);
         windowStart = now;
         windowFrames = 0;
         String name = p.getName();
-        FrameRatePolicy.Decision d = policy.decide(fps, now, surfaceHeight, settings.isAuto(), settings.autoSlowFps(),
-                pacing, paced, probed.contains(name));
-        switch (d.kind) {
+        if (!paced && settings.isAuto()) {
+            int h = resolution.update(fps, now);
+            if (h != 0) {
+                Log.i(TAG, String.format("auto: %.0f fps, %dp: %s", fps, h, name));
+                settings.learn(name, h);
+                applyInnerSize();
+                settle(INNER_SETTLE_MS);
+                return;
+            }
+            if (resolution.atMin() && fps < FrameRatePolicy.TOO_SLOW_FPS) {
+                // Already at the smallest picture: the cost is not in pixels (usually hundreds of custom shapes
+                // worked out on the CPU), so a smaller picture cannot help. Remember it for "Skip heavy presets".
+                Log.i(TAG, String.format("auto: %.0f fps at %dp, too slow: %s", fps, resolution.height(), name));
+                settings.markTooSlow(name, fps);
+                if (settings.skipHeavy() && !locked) dropCurrent(true);
+                return;
+            }
+            if (!resolution.atMin()) return;  // still room to shrink: no pacing yet
+        }
+        switch (FrameRatePolicy.decide(fps, pacing, paced)) {
             case PACE_OFF:
                 Log.i(TAG, String.format("pace: %.0f fps, cannot hold 30, pacing off: %s", fps, name));
                 setPaced(false);
                 settle(SETTLE_MS);
                 break;
-            case TOO_SLOW:
-                // Already at the smallest picture: the cost is not in pixels (usually hundreds of custom shapes
-                // worked out on the CPU), so a smaller picture cannot help. Remember it for "Skip heavy presets".
-                Log.i(TAG, String.format("auto: %.0f fps at %dp, too slow: %s", fps, surfaceHeight, name));
-                settings.markTooSlow(name, fps);
-                if (settings.skipHeavy() && !locked) dropCurrent(true);
-                break;
-            case DOWN:
-                Log.i(TAG, String.format("auto: %.0f fps at %dp, down to %dp: %s", fps, surfaceHeight, d.height, name));
-                settings.learn(name, d.height);
-                want(d.height);
-                break;
-            case UP:
-                Log.i(TAG, String.format("auto: %.0f fps at %dp, trying %dp: %s", fps, surfaceHeight, d.height, name));
-                probed.add(name);
-                settings.learn(name, d.height);
-                want(d.height);
-                break;
             case PACE_ON:
-                Log.i(TAG, String.format("pace: %.0f fps at %dp, even 30: %s", fps, surfaceHeight, name));
+                Log.i(TAG, String.format("pace: %.0f fps at %dp, even 30: %s", fps, pictureHeight(), name));
                 setPaced(true);
                 break;
             case NONE:
@@ -309,8 +309,21 @@ final class VizRenderer implements GLSurfaceView.Renderer {
         }
     }
 
+    /** The height projectM draws at now. */
+    int pictureHeight() {
+        if (settings.isAuto()) return resolution.height();
+        return innerHeight > 0 ? innerHeight : surfaceHeight;
+    }
+
+    /** Surface height for the chosen picture: Smooth draws inside 720p, Sharp inside 1080p, else fixed. */
+    private int surfaceFor() {
+        if (!settings.isAuto()) return settings.renderHeight();
+        return settings.renderHeight() == Settings.AUTO_SHARP ? 1080 : 720;
+    }
+
     private void applyInnerSize() {
-        int h = innerHeight;
+        int h = settings.isAuto() ? resolution.height() : innerHeight;
+        if (h >= surfaceHeight) h = 0;  // same size: draw straight to the surface
         Native.setInnerSize(h > 0 ? Settings.widthFor(h) : 0, h);
     }
 
@@ -319,6 +332,15 @@ final class VizRenderer implements GLSurfaceView.Renderer {
         paced = on;
         // Not eglSwapInterval(2): this TV ignores it. The activity draws on demand every second vsync instead.
         listener.onPaced(on);
+    }
+
+    /** A preset starts at the height it settled at last time on this TV. */
+    private void startResolution(File preset) {
+        ResolutionController want = settings.renderHeight() == Settings.AUTO_SHARP
+                ? ResolutionController.sharp() : ResolutionController.smooth();
+        if (want.max != resolution.max) resolution = want;
+        resolution.start(settings.learnedHeight(preset.getName()));
+        if (ready) applyInnerSize();
     }
 
     private void want(int height) {
@@ -340,7 +362,7 @@ final class VizRenderer implements GLSurfaceView.Renderer {
         if (now - fpsStart >= 10_000) {
             File p = currentPreset();
             Log.i(TAG, String.format("fps %.1f  worst %d ms  slow %d  %dp%s  %s",
-                    fpsFrames * 1000f / (now - fpsStart), worstGapNs / 1_000_000, slowFrames, surfaceHeight,
+                    fpsFrames * 1000f / (now - fpsStart), worstGapNs / 1_000_000, slowFrames, pictureHeight(),
                     paced ? " paced" : "",
                     p == null ? "-" : p.getName()));
             fpsStart = now;
@@ -396,7 +418,8 @@ final class VizRenderer implements GLSurfaceView.Renderer {
         if (ready) Native.setTiming(settings.durationSec(), settings.beatCuts());
         File shown = currentPreset();
         if (shown != null) {
-            want(settings.isAuto() ? settings.learnedHeight(shown.getName()) : settings.renderHeight());
+            if (settings.isAuto()) startResolution(shown);
+            want(surfaceFor());
         }
         File current = currentPreset();
         rebuild(current == null ? null : current.getPath());
@@ -423,7 +446,7 @@ final class VizRenderer implements GLSurfaceView.Renderer {
             // Compile the next preset's shaders in the background, so moving on does not freeze the picture.
             if (order.size() > 1) Native.warm(order.get(Math.floorMod(position + 1, order.size())).getPath(), textureDir);
         }
-        if (settings.isAuto()) want(settings.learnedHeight(preset.getName()));
+        if (settings.isAuto()) startResolution(preset);
         settle(SETTLE_MS + (smooth ? blend : 0));
         listener.onPresetShown(category, preset, locked, userAction);
     }

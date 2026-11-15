@@ -89,3 +89,19 @@ The stretch onto a 720p surface costs at most ~5%; onto 1080p up to ~11%. Plan: 
 size free below it, 1080p surface only for presets that run there. Next: keep the picture when the inner size
 changes (projectM recreates its textures empty, so trails reset), then size steps every ~0.5 s.
 
+## Variable resolution, step 3: the controller (15-Nov-2026)
+
+`ResolutionController` picks projectM's inner height (Smooth: 360p-720p on a 720p surface; Sharp: 480p-1080p
+on 1080p) every half second: a shrink jumps to the size the frame rate says fits; a step up waits 2 s of 58+
+fps; a failed step goes back and holds 2 min; a shrink that gains under 5% means the CPU is the limit, so the
+size goes back and climbs while each step is free (also for presets sitting at 55-57 fps). TV, Smooth, 45 s each
+(`SECS=45 PACE=true tools/tv-bench.sh 0`), against a fixed 480p (direct, earlier today):
+
+| preset | fixed 480p | variable (settled size) |
+|---|---|---|
+| ants on acid | 41.8 | 52.5 (416p) |
+| phlegmployant | 27.4 | even 30, paced (416p) |
+| green machine | 54.7 | 55.4 (552-576p, sharper) |
+| interference pattern 2 | 39.4 | 56.2 (376p) |
+| splash | 40.1 | 53.6 (376p) |
+

@@ -15,11 +15,11 @@ final class Settings {
     static final int[] DURATIONS = {15, 30, 60, 120, 300};
     /** Render heights (16:9). The display scales the picture up; lower = smoother on slow TV GPUs. */
     static final int[] HEIGHTS = {480, 540, 720, 1080};
-    /** renderHeight value meaning "Auto, smooth" (the default): each preset gets the largest height it runs at
-     *  55 fps or more on this TV (a full 60); one that cannot at 480p is paced to an even 30. Motion that keeps
-     *  up with the music matters more than sharpness. */
+    /** renderHeight value meaning "Auto, smooth" (the default): each preset draws at the largest height (360p to
+     *  720p, any multiple of 8) that holds 60 fps on this TV, adjusted every half second; one that cannot at
+     *  360p is paced to an even 30. Motion that keeps up with the music matters more than sharpness. */
     static final int AUTO = 0;
-    /** renderHeight value meaning "Auto, sharp": the largest height that still runs 24 fps or more. */
+    /** renderHeight value meaning "Auto, sharp": the largest height (480p to 1080p) that runs 24 fps or more. */
     static final int AUTO_SHARP = 1;
     /** Choices in the menu, in order. */
     static final int[] PICTURE_CHOICES = {AUTO, AUTO_SHARP, 480, 540, 720, 1080};
@@ -41,8 +41,10 @@ final class Settings {
     /** Raise when a change makes presets render faster or slower (projectM patches, renderer changes): the first
      *  start after the update forgets what Auto picture learned on the old renderer and measures again.
      *  2: batched custom shapes (patches/projectm/0001, 15-Nov-2026). 3: batched non-additive borders (0002).
-     *  4: Smooth steps down below 55 fps (was 45), even 30 pacing below that. */
-    static final int RENDERER_GENERATION = 4;
+     *  4: Smooth steps down below 55 fps (was 45), even 30 pacing below that.
+     *  5: variable resolution (any height, patches 0003/0004). 6: CPU-bound presets keep their size.
+     *  7: presets between the thresholds climb while it is free. */
+    static final int RENDERER_GENERATION = 7;
     /** True when this start cleared learned picture sizes because the renderer changed. */
     final boolean relearning;
 
@@ -129,16 +131,13 @@ final class Settings {
         return h != 0 ? h : typicalHeight();
     }
 
+    /** The median learned height (any multiple of 8 since variable resolution), or 1080 when none yet. */
     private int typicalHeight() {
-        int[] votes = new int[HEIGHTS.length];
-        int best = HEIGHTS.length - 1;
-        for (Object v : learned.getAll().values()) {
-            if (!(v instanceof Integer)) continue;
-            for (int i = 0; i < HEIGHTS.length; i++) {
-                if (HEIGHTS[i] == (Integer) v && ++votes[i] > votes[best]) best = i;
-            }
-        }
-        return HEIGHTS[best];
+        java.util.List<Integer> hs = new java.util.ArrayList<>();
+        for (Object v : learned.getAll().values()) if (v instanceof Integer) hs.add((Integer) v);
+        if (hs.isEmpty()) return 1080;
+        java.util.Collections.sort(hs);
+        return hs.get(hs.size() / 2);
     }
 
     void learn(String presetName, int height) {

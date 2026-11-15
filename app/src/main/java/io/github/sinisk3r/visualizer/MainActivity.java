@@ -100,8 +100,8 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
         // am start -n .../.MainActivity --es preset <path on the TV> --ei height 480
         String testPreset = getIntent().getStringExtra("preset");
         testRun = testPreset != null;
-        int testHeight = getIntent().getIntExtra("height", 0);
-        if (testHeight > 0) settings.overrideHeight(testHeight);
+        // --ei height: 0 Smooth, 1 Sharp, else a fixed height (this run only).
+        if (getIntent().hasExtra("height")) settings.overrideHeight(getIntent().getIntExtra("height", 0));
         renderer = new VizRenderer(library, settings, library.textureSearchPath(this), this,
                 prefs.getString("category", PresetLibrary.ALL),
                 testPreset != null ? testPreset : prefs.getString("preset", null),
@@ -117,7 +117,8 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
         glView.setPreserveEGLContextOnPause(true);
         // Rendered below screen size and scaled up by the display hardware: MilkDrop is soft anyway,
         // and slow TV GPUs keep a smooth frame rate. Menu > Picture: Auto (learned per preset) or 480p to 1080p.
-        int h = settings.isAuto() ? 720 : settings.renderHeight();  // Auto: each preset then asks for its own
+        // Auto: projectM draws at a variable height inside a 720p (Smooth) or 1080p (Sharp) surface.
+        int h = !settings.isAuto() ? settings.renderHeight() : settings.renderHeight() == Settings.AUTO_SHARP ? 1080 : 720;
         glView.getHolder().setFixedSize(Settings.widthFor(h), h);
         glView.setRenderer(renderer);
         glView.setOnClickListener(v -> glView.queueEvent(() -> renderer.step(1, true, true)));

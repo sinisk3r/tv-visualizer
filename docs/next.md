@@ -67,8 +67,9 @@ Ideas in order of felt gain per effort:
    small steps every ~0.5 s, instead of resizing the surface (1.5 s settle, 4 steps). In progress (user asked,
    15-Nov-2026): step 1 done (patch 0003, inner size + stretch, test hook `INNER=480 tools/tv-bench.sh 720`;
    costs <=5% on a 720p surface, docs/performance.md). Step 2 done: patch 0004 keeps the picture on a size change
-   (Mac check `tools/mac-render/build/resize-check`: ~100% kept vs 0-22% before). Next: a controller that
-   moves the inner size in ~5% steps from frame times, on a fixed 720p surface.
+   (Mac check `tools/mac-render/build/resize-check`: ~100% kept vs 0-22% before). Step 3 done: `ResolutionController`
+   (11 tests), TV numbers in docs/performance.md. Left: judge by eye (size steps should be invisible), and
+   whether Smooth's 720p cap loses sharpness on light presets (Sharp still reaches 1080p).
 5. Per-pixel mesh size by preset cost (32x24 now). Measured 15-Nov-2026, 480p, 16x12 vs 32x24: phlegmployant
    27.4 to 30.1 fps (slow frames 27 to 0), ants 40.5 to 41.8, interference 39.1 to 39.3. Only CPU-heavy presets
    gain (~10%). If built: coarser mesh only for presets still under 31 fps at 480p, after the user judges
