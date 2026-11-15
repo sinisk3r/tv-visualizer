@@ -19,7 +19,8 @@ import java.util.List;
 /**
  * The 0-list (mockup A2, screen 0b): pressing 0 with the menu closed opens favourites numbered 01, 02 ... and the
  * playlists 001 Featured, 002 Most watched, 003 New to you, 004 Recently played. More digits jump to a line
- * (ZeroEntry), the arrows work, OK plays. "0" then OK opens Find on Favourites, "00" then OK on the playlists.
+ * (ZeroEntry), the arrows work, OK plays the highlighted line: right after 0 that is favourite 01 (or 001 Featured
+ * with no favourites), after "00" Featured. Favourites stay reachable in Find.
  * No timer while it is open: it closes after 10 s without a key, or with Back. Presets 1 to 9,791 still jump
  * straight (ChannelEntry), unchanged.
  *
@@ -27,8 +28,6 @@ import java.util.List;
  */
 final class ZeroPanel {
     interface Host extends FindPanel.Host {
-        /** Opens Find on list `which` (FindPanel.FAVOURITES, or a playlist 1-4). */
-        void openFind(int which);
     }
 
     static final long IDLE_MS = 10_000;
@@ -212,12 +211,17 @@ final class ZeroPanel {
         ListRows.setIfChanged(typed, entry.shown());
         switch (t.kind) {
             case FAVOURITES:
-                if (!favourites.isEmpty()) favs.focusItem(0);
-                ListRows.setIfChanged(note, "OK opens Favourites in Find");
+                if (!favourites.isEmpty()) {
+                    favs.focusItem(0);
+                    ListRows.setIfChanged(note, "OK plays favourite 01");
+                } else {
+                    playlists.focusItem(0);
+                    ListRows.setIfChanged(note, "No favourites yet  ·  OK plays " + SmartLists.NAMES[SmartLists.FEATURED]);
+                }
                 break;
             case PLAYLISTS:
                 playlists.focusItem(0);
-                ListRows.setIfChanged(note, "OK opens the playlists in Find");
+                ListRows.setIfChanged(note, "OK plays " + SmartLists.NAMES[SmartLists.FEATURED]);
                 break;
             case FAVOURITE:
                 if (t.index < favourites.size()) {
@@ -238,26 +242,22 @@ final class ZeroPanel {
         }
     }
 
-    /** OK: after arrows, the focused line; otherwise the typed code. */
+    /** OK: the highlighted line (after arrows, or "0" / "00"); otherwise the typed code. */
     private void ok() {
-        View focused = act.getCurrentFocus();
-        if (moved) {
+        ZeroEntry.Target t = entry.target();
+        if (ZeroEntry.okPlaysHighlighted(t, moved)) {
+            View focused = act.getCurrentFocus();
             if (focused != null && isInside(focused, card)) focused.performClick();
             return;
         }
-        ZeroEntry.Target t = entry.target();
         switch (t.kind) {
-            case FAVOURITES:
-                host.openFind(FindPanel.FAVOURITES);
-                break;
-            case PLAYLISTS:
-                host.openFind(SmartLists.FEATURED + 1);
-                break;
             case FAVOURITE:
                 if (t.index < favourites.size()) playFavourite(t.index);
                 break;
             case PLAYLIST:
                 if (t.index < SmartLists.NAMES.length) playPlaylist(t.index);
+                break;
+            default:
                 break;
         }
     }

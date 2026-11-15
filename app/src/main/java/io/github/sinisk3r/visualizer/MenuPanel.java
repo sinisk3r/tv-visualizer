@@ -2,6 +2,8 @@ package io.github.sinisk3r.visualizer;
 
 import android.app.Activity;
 import android.graphics.Typeface;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.SystemClock;
 import android.text.TextUtils;
 import android.util.TypedValue;
@@ -41,6 +43,8 @@ import java.util.TreeMap;
  *
  * Remote: Left/Right along the bar, Up into the open card, Down back to the button that opened it, OK presses,
  * Back closes the innermost card, then the bar.
+ *
+ * Left alone, the menu closes itself (MenuIdle): 10 s after the last key with just the bar, 30 s with a card open.
  */
 final class MenuPanel {
     interface Host {
@@ -75,6 +79,8 @@ final class MenuPanel {
         void toggleDemo();
         /** Plays this preset now (Search results, the number pad), like a typed channel number. */
         void play(File preset);
+        /** Closes the menu (left idle), as Back on the bar does. */
+        void dismiss();
     }
 
     /** FIND is a style's page (opened from Find's Styles list); LISTS is Find itself (FindPanel); ZERO the 0-list. */
@@ -106,6 +112,11 @@ final class MenuPanel {
     /** Find (lists and preview) and the 0-list: their own classes, shown here as cards. */
     private FindPanel lists;
     private ZeroPanel zero;
+
+    /** The idle close (MenuIdle): one runnable, re-posted until the wait since the last key has run out. */
+    private final Handler ui = new Handler(Looper.getMainLooper());
+    private final Runnable idleCheck = this::idleCheck;
+    private long lastKeyAt;
 
     /** Rewrites one value in place. Static ones (bar, cards) are made once; Find's per page. */
     private final List<Runnable> values = new ArrayList<>();
@@ -185,7 +196,7 @@ final class MenuPanel {
         });
     }
 
-    /** The bar with Find open on list `which` (the 0-list's "0" or "00" then OK). */
+    /** The bar with Find open on list `which` (Search's pad: "0" or "00" then OK). */
     void openFind(int which) {
         if (!isOpen()) open();
         showPanel(LISTS, null);
@@ -226,9 +237,11 @@ final class MenuPanel {
         tick();
         fav.cell.requestFocus();
         barTitle.setSelected(true);  // long names scroll
+        keyPressed();
     }
 
     void close() {
+        ui.removeCallbacks(idleCheck);
         root.animate().cancel();
         root.setVisibility(View.GONE);
         barTitle.setSelected(false);
@@ -236,6 +249,40 @@ final class MenuPanel {
         searchPanel.release();  // no microphone left open behind a closed menu
         if (zero != null) zero.closed();
         panel = NONE;
+    }
+
+    /** Any key while the menu is open (the activity calls this first): the idle wait starts over. */
+    void keyPressed() {
+        lastKeyAt = SystemClock.uptimeMillis();
+        scheduleIdle();
+    }
+
+    private boolean cardOpen() {
+        return panel != NONE || music.explainerShown();
+    }
+
+    private void scheduleIdle() {
+        ui.removeCallbacks(idleCheck);
+        if (!isOpen() || panel == ZERO) return;  // the 0-list has its own 10 s
+        long left = MenuIdle.remaining(lastKeyAt, SystemClock.uptimeMillis(), cardOpen());
+        ui.postDelayed(idleCheck, Math.max(0, left));
+    }
+
+    private void idleCheck() {
+        if (!isOpen() || panel == ZERO) return;
+        long now = SystemClock.uptimeMillis();
+        if (!act.hasWindowFocus()) {
+            // Another screen is on top (notification access in TV Settings, speech input): wait for the return.
+            lastKeyAt = now;
+            scheduleIdle();
+            return;
+        }
+        long left = MenuIdle.remaining(lastKeyAt, now, cardOpen());
+        if (left > 0) {  // a card opened since the wait began: it gets the longer wait
+            ui.postDelayed(idleCheck, left);
+            return;
+        }
+        host.dismiss();
     }
 
     /** Back key: closes the innermost card. Returns false when the bar itself should close. */
@@ -361,6 +408,7 @@ final class MenuPanel {
             barTime.setVisibility(View.GONE);
             barHint.setVisibility(View.VISIBLE);
         }
+        scheduleIdle();
         View card = p == SETTINGS ? cardSettings : p == ADVANCED ? cardAdvanced : p == FIND ? cardFind
                 : p == SEARCH ? cardSearch : p == ABOUT ? about : p == LISTS ? lists.view() : p == ZERO ? zero.view() : null;
         refresh();

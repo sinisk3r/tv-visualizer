@@ -1,6 +1,8 @@
 package io.github.sinisk3r.visualizer;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
 
@@ -56,5 +58,22 @@ public class ZeroEntryTest {
         assertEquals("12", ZeroEntry.favouriteNumber(11));
         assertEquals("001", ZeroEntry.playlistNumber(0));
         assertEquals("004", ZeroEntry.playlistNumber(3));
+    }
+
+    @Test
+    public void okRightAfterZeroPlaysTheHighlightedLine() {
+        ZeroEntry z = new ZeroEntry();
+        assertTrue("0 then OK plays favourite 01", ZeroEntry.okPlaysHighlighted(z.target(), false));
+        assertTrue("00 then OK plays Featured", ZeroEntry.okPlaysHighlighted(z.add(0), false));
+    }
+
+    @Test
+    public void okAfterACodePlaysTheCodeUnlessTheArrowsMoved() {
+        ZeroEntry z = new ZeroEntry();
+        assertFalse(ZeroEntry.okPlaysHighlighted(z.add(2), false));  // 02
+        assertTrue(ZeroEntry.okPlaysHighlighted(z.target(), true));
+        z.reset();
+        z.add(0);
+        assertFalse(ZeroEntry.okPlaysHighlighted(z.add(3), false));  // 003
     }
 }

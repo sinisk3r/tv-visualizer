@@ -386,6 +386,12 @@ final class VizRenderer implements GLSurfaceView.Renderer {
         step(1, true, true);
     }
 
+    /** Shuffle switched to This set from the "shuffle this one only" question: play from the current set alone. */
+    void shuffleThisSet() {
+        if (order.narrowToSet()) listener.onPresetShown(order.category(), currentPreset(), locked, true);
+        else step(1, true, true);
+    }
+
     void setLocked(boolean on) {
         locked = on;
         if (ready) Native.setLocked(on);

@@ -268,6 +268,21 @@ public class MenuPanelsTest {
     }
 
     @Test
+    public void zeroThenOkPlaysFavouriteOneAtOnce() {
+        addFavourites(3);
+        File first = onUi(a -> library(a).byName(((Settings) field(a, "settings")).favouritesInOrder().get(0)));
+        key(KeyEvent.KEYCODE_0);
+        key(KeyEvent.KEYCODE_DPAD_CENTER);
+        assertFalse("OK plays and closes the 0-list", onUi(a -> menu(a).isOpen()));
+        long until = SystemClock.uptimeMillis() + 10_000;
+        while (!first.equals(onUi(a -> field(a, "shownPreset"))) && SystemClock.uptimeMillis() < until) {
+            SystemClock.sleep(100);
+        }
+        assertEquals(first, onUi(a -> field(a, "shownPreset")));
+        assertEquals(PresetLibrary.FAVOURITES, onUi(a -> a.category()));
+    }
+
+    @Test
     public void zeroListWithNoFavouritesFocusesThePlaylists() {
         key(KeyEvent.KEYCODE_0);
         View card = onUi(a -> zeroPanel(a).view());
@@ -296,6 +311,111 @@ public class MenuPanelsTest {
         assertTrue("closed too early", SystemClock.uptimeMillis() - kicked >= ZeroPanel.IDLE_MS - 500);
         assertEquals(View.GONE, (int) onUi(a -> a.findViewById(R.id.menu).getVisibility()));
         assertTrue("the visuals take the keys again", onUi(a -> a.getCurrentFocus() instanceof android.opengl.GLSurfaceView));
+    }
+
+    @Test
+    public void theBarAloneClosesAfterTenSecondsIdleACardAfterThirty() {
+        key(KeyEvent.KEYCODE_DPAD_CENTER);
+        long opened = SystemClock.uptimeMillis();
+        assertTrue(onUi(a -> menu(a).isOpen()));
+        waitClosed(opened + MenuIdle.BAR_MS + 5_000);
+        assertTrue("bar closed too early", SystemClock.uptimeMillis() - opened >= MenuIdle.BAR_MS - 500);
+        assertTrue("the visuals take the keys again", onUi(a -> a.getCurrentFocus() instanceof android.opengl.GLSurfaceView));
+
+        openBarButton(R.id.b_settings, 5);
+        long kicked = SystemClock.uptimeMillis();
+        assertPanel(MenuPanel.SETTINGS, R.id.card_settings);
+        SystemClock.sleep(MenuIdle.BAR_MS + 2_000);
+        assertTrue("a card waits longer than the bar", onUi(a -> menu(a).isOpen()));
+        key(KeyEvent.KEYCODE_DPAD_RIGHT);  // a key restarts the wait
+        kicked = SystemClock.uptimeMillis();
+        waitClosed(kicked + MenuIdle.CARD_MS + 5_000);
+        assertTrue("card closed too early", SystemClock.uptimeMillis() - kicked >= MenuIdle.CARD_MS - 500);
+    }
+
+    private void waitClosed(long until) {
+        while (onUi(a -> menu(a).isOpen()) && SystemClock.uptimeMillis() < until) SystemClock.sleep(200);
+        assertFalse("still open after the idle wait", onUi(a -> menu(a).isOpen()));
+        assertEquals(View.GONE, (int) onUi(a -> a.findViewById(R.id.menu).getVisibility()));
+    }
+
+    @Test
+    public void upWithEverythingAsksAndOkShufflesThisStyleOnly() {
+        setShuffle(Settings.SHUFFLE_ALL);
+        File was = onUi(a -> (File) field(a, "shownPreset"));
+        key(KeyEvent.KEYCODE_DPAD_UP);
+        waitTagAsks();
+        String style = onUi(a -> a.category());
+        assertNotEquals(PresetLibrary.ALL, style);
+        key(KeyEvent.KEYCODE_DPAD_CENTER);
+        assertFalse("OK answers the question, not the menu", onUi(a -> menu(a).isOpen()));
+        assertEquals(Settings.SHUFFLE_SET, (int) onUi(a -> ((Settings) field(a, "settings")).shuffle()));
+        // Next presets come from the chosen style alone.
+        for (int i = 0; i < 3; i++) {
+            File before = onUi(a -> (File) field(a, "shownPreset"));
+            key(KeyEvent.KEYCODE_DPAD_RIGHT);
+            waitPresetChange(before);
+            File now = onUi(a -> (File) field(a, "shownPreset"));
+            assertTrue(now + " is not in " + style, onUi(a -> library(a).byCategory.get(style).contains(now)));
+        }
+        assertNotNull(was);
+    }
+
+    @Test
+    public void anotherKeyKeepsShufflingEverything() {
+        setShuffle(Settings.SHUFFLE_ALL);
+        key(KeyEvent.KEYCODE_DPAD_DOWN);
+        waitTagAsks();
+        key(KeyEvent.KEYCODE_DPAD_RIGHT);
+        key(KeyEvent.KEYCODE_DPAD_CENTER);  // too late: the question is gone, OK opens the menu
+        assertTrue(onUi(a -> menu(a).isOpen()));
+        assertEquals(Settings.SHUFFLE_ALL, (int) onUi(a -> ((Settings) field(a, "settings")).shuffle()));
+    }
+
+    @Test
+    public void favouriteFromTheZeroListAsksWithEverything() {
+        setShuffle(Settings.SHUFFLE_ALL);
+        addFavourites(2);
+        key(KeyEvent.KEYCODE_0);
+        key(KeyEvent.KEYCODE_DPAD_CENTER);
+        waitTagAsks();
+        key(KeyEvent.KEYCODE_DPAD_CENTER);
+        assertFalse(onUi(a -> menu(a).isOpen()));
+        assertEquals(Settings.SHUFFLE_SET, (int) onUi(a -> ((Settings) field(a, "settings")).shuffle()));
+        assertEquals(PresetLibrary.FAVOURITES, onUi(a -> a.category()));
+    }
+
+    @Test
+    public void noQuestionWithoutEverything() {
+        key(KeyEvent.KEYCODE_DPAD_UP);  // default Shuffle: This set
+        SystemClock.sleep(1000);
+        assertNotEquals(ShuffleAsk.LINE, onUi(a -> ((TextView) a.findViewById(R.id.subtitle)).getText().toString()));
+    }
+
+    private void setShuffle(int mode) {
+        onUi(a -> {
+            ((Settings) field(a, "settings")).setShuffle(mode);
+            return null;
+        });
+    }
+
+    /** The tag shows the question (the renderer reports from the GL thread). */
+    private void waitTagAsks() {
+        long until = SystemClock.uptimeMillis() + 3_000;
+        while (SystemClock.uptimeMillis() < until && !ShuffleAsk.LINE.equals(onUi(a ->
+                ((TextView) a.findViewById(R.id.subtitle)).getText().toString()))) {
+            SystemClock.sleep(50);
+        }
+        assertEquals(ShuffleAsk.LINE, onUi(a -> ((TextView) a.findViewById(R.id.subtitle)).getText().toString()));
+        assertEquals(View.VISIBLE, (int) onUi(a -> a.findViewById(R.id.overlay).getVisibility()));
+    }
+
+    private void waitPresetChange(File was) {
+        long until = SystemClock.uptimeMillis() + 10_000;
+        while (was.equals(onUi(a -> field(a, "shownPreset"))) && SystemClock.uptimeMillis() < until) {
+            SystemClock.sleep(100);
+        }
+        assertNotEquals("the preset did not change", was, onUi(a -> field(a, "shownPreset")));
     }
 
     @Test

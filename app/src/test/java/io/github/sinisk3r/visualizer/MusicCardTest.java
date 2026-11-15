@@ -88,10 +88,9 @@ public class MusicCardTest {
         assertEquals(R.id.m_prev, root.findFocus().getId());
         press(KeyEvent.KEYCODE_DPAD_RIGHT);
         press(KeyEvent.KEYCODE_DPAD_RIGHT);
-        press(KeyEvent.KEYCODE_DPAD_RIGHT);
-        assertEquals(R.id.m_mute, root.findFocus().getId());
+        assertEquals("no mute: Next ends the controls", R.id.m_next, root.findFocus().getId());
         assertTrue(press(KeyEvent.KEYCODE_DPAD_RIGHT));
-        assertEquals(R.id.m_mute, root.findFocus().getId());
+        assertEquals(R.id.m_next, root.findFocus().getId());
     }
 
     @Test
@@ -131,9 +130,12 @@ public class MusicCardTest {
     }
 
     @Test
-    public void withoutAccessShowsControlsAndTheAskRow() {
+    public void withoutAccessShowsControlsAndTheAskRowButNoScrubber() {
         ShadowLooper.idleMainLooper();
         assertEquals(View.VISIBLE, view(R.id.m_ask).getVisibility());
         assertTrue(view(R.id.m_play).isShown());
+        assertEquals(View.GONE, view(R.id.m_seek).getVisibility());
+        card.tick();
+        assertEquals(View.GONE, view(R.id.m_seek).getVisibility());
     }
 }
