@@ -10,6 +10,9 @@ set(ENABLE_SYSTEM_GLM OFF CACHE BOOL "" FORCE)
 set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
 set(ENABLE_INSTALL OFF CACHE BOOL "" FORCE)
 set(BUILD_SHARED_LIBS ON CACHE BOOL "" FORCE)
+# Same library names in debug builds (projectM adds "d"), so System.loadLibrary works there too: the emulator
+# UI tests run against the debug build.
+set(ENABLE_DEBUG_POSTFIX OFF CACHE BOOL "" FORCE)
 # Our changes to projectM, as patch files in patches/projectm, applied in name order to the submodule. Each one says
 # where it came from; check them again when the submodule moves. Later patches change lines of earlier ones, so:
 # if the last patch is already applied, all are; otherwise reset projectM's src/ and apply them all in order.
