@@ -506,7 +506,10 @@ final class MenuPanel {
         return i;
     }
 
+    /** The live frame rate and size only while "Show frame rate" is on (updated every second); otherwise what the
+     *  picture choice does. */
     private String pictureNow() {
+        if (!settings.showFps()) return BarText.pictureHint(settings.renderHeight());
         String now = BarText.fps(host.fps(), host.pictureHeight());
         return settings.isAuto() ? now : "Fixed " + settings.renderHeight() + "p" + (now.isEmpty() ? "" : "  ·  " + now);
     }

@@ -39,6 +39,13 @@ public class BarTextTest {
     }
 
     @Test
+    public void pictureHintWithoutLiveNumbers() {
+        assertEquals("Fluid motion first", BarText.pictureHint(Settings.AUTO));
+        assertEquals("More detail, may be less fluid", BarText.pictureHint(Settings.AUTO_SHARP));
+        assertEquals("Fixed 720p", BarText.pictureHint(720));
+    }
+
+    @Test
     public void fpsLine() {
         assertEquals("60 fps  ·  720p now", BarText.fps(59.7f, 720));
         assertEquals("before the first window, the size only", "480p now", BarText.fps(0, 480));

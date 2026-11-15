@@ -41,6 +41,13 @@ final class BarText {
         return "Shuffle: " + Settings.shuffleLabel(shuffle).toLowerCase(java.util.Locale.ROOT);
     }
 
+    /** Beside Smooth and Sharp when "Show frame rate" is off: what the choice does, no live numbers. */
+    static String pictureHint(int renderHeight) {
+        if (renderHeight == Settings.AUTO) return "Fluid motion first";
+        if (renderHeight == Settings.AUTO_SHARP) return "More detail, may be less fluid";
+        return "Fixed " + renderHeight + "p";
+    }
+
     /** "60 fps  ·  720p now", for the settings card and the frame rate readout. */
     static String fps(float fps, int height) {
         if (height <= 0) return "";
