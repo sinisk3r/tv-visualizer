@@ -103,6 +103,11 @@ browser (find) panel needs work. User decisions:
 - **Smart favourites:** favourite a whole style or single presets; smart playlists from viewing data (most
   watched in the last month / three months), so newer presets get the same attention as the classics. Needs a
   local play log (preset, seconds watched, date), kept on the TV only (privacy policy: no data leaves it).
+- **Numbers (15-Nov-2026):** 0 then OK opens Favourites; 01, 02... play single favourites; named playlists are
+  1xx (101 Featured, 102 Most watched, ...). Clash: presets are 1-9,791 today. Proposed (awaiting the user):
+  renumber presets once from 1000 before the first store release.
+- **Picture:** only Smooth or Sharp in the main settings; fixed 480p-1080p only under Advanced (a fixed size
+  forces a worse picture on most presets).
 - **Detailed settings page** reached from the bar, holding About and every switch: Switch on big beats, Skip
   heavy presets, Skip deaf presets, Time per preset, Picture (chips: Smooth, Sharp, fixed sizes).
 - No Winamp name, logo or skins and no MilkDrop branding. The menu stays grey.
