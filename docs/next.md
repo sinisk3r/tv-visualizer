@@ -150,6 +150,11 @@ browser (find) panel needs work. User decisions:
   example: Geometric > Cathedral starts at 1001, 19 presets, so Circles Nested is 1020). Numbers already run in
   style / sub-style / name order (Cathedral 3849-3867, Circles Nested 3868-3876, City 3877-3880), so each card
   can show its range. Also find what says "playlist not available" inside a style. Mockup first.
+- **Fixed picture sizes warn (user, 15-Nov-2026):** no 4K choice for users (Auto may climb there by itself on a
+  fast TV). In Live and advanced > Fixed picture size, a size above what this TV sustains (median learned Auto
+  height, or measured fps under ~50 at that size) shows "Not recommended for your TV" (1080p on this TV). While
+  a fixed size runs slow (under ~45 fps for 30 s), a small note in a bottom corner: "Slow at 1080p on this TV ·
+  Settings > Picture: Smooth", dismissable (developers testing keep it). Build after `menu-fixes` merges.
 - **Fps readout (15-Nov-2026):** dropped at the user's call; the settings card shows the 30 s average instead.
 
 ```
