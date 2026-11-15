@@ -138,9 +138,9 @@ browser (find) panel needs work. User decisions:
 - **Style pages (user, 15-Nov-2026):** the style title stays at the top while scrolling, with a back button and
   a play icon beside it. Sub-style cards get two icons at the end instead of a whole-card highlight: play (play
   just that sub-style) and an eye (on/off). Show channel numbers per sub-style so it can be typed (the user's
-  example: Geometric > Cathedral starts at 1001, 19 presets, so Circles Nested is 1020). Open question: preset
-  numbers are fixed and not grouped by style, so sub-styles need their own numbers (like playlists) or the list
-  shows each preset's own number. Also find what says "playlist not available" inside a style. Mockup first.
+  example: Geometric > Cathedral starts at 1001, 19 presets, so Circles Nested is 1020). Numbers already run in
+  style / sub-style / name order (Cathedral 3849-3867, Circles Nested 3868-3876, City 3877-3880), so each card
+  can show its range. Also find what says "playlist not available" inside a style. Mockup first.
 - **Fps readout (15-Nov-2026):** dropped at the user's call; the settings card shows the 30 s average instead.
 
 ```
@@ -159,7 +159,8 @@ Started 15-Nov-2026: JVM tests for Settings and preset names (Robolectric), Pyth
 1. Pull logic out of MainActivity/VizRenderer into plain classes with tests: ~~channel-number entry~~
    (`ChannelEntry`, done), ~~Auto picture and pacing decisions~~ (`FrameRatePolicy`, done, checked on the TV),
    ~~the play order~~ (`PlayOrder`, 11 tests, done 15-Nov-2026). Step 1 is done.
-2. Song and drop detection (`detectSong` in native.cpp) as a host C++ test fed with recorded RMS curves.
+2. ~~Song and drop detection~~ (`song_detector.h`, host C++ test `tools/tests/song_detector_test.cpp`, 7 cases with
+   synthetic level curves, run by the Python suite; done 15-Nov-2026). Later: add curves recorded on the TV.
 3. UI tests for the new menu (B) on the emulator (AVD tv34, Espresso): focus order, keys, no row rebuilds.
 4. TV checks stay manual but scripted: `tools/tv-bench.sh` before/after any renderer change.
 
@@ -246,6 +247,7 @@ safety form and privacy policy).
   hardware (CPU and GPU are logged at start as `device ...` and in the projectM line).
 
 ## Done
+- 15-Nov-2026: song and drop detection moved into `song_detector.h` with a host C++ test (7 cases), run in CI.
 - 15-Nov-2026: play order moved out of VizRenderer into `PlayOrder` (filters, shuffle modes, held preset, `play()`
   slotting, drop), 11 tests incl. the weighted shuffle; checked on the TV (Next, Back, style change).
 - 15-Nov-2026: menu phase 1 merged and on the TV (`14d9e6e`): transport bar (Previous/Next kept, OK lands on
