@@ -106,6 +106,7 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
                 prefs.getString("category", PresetLibrary.ALL),
                 testPreset != null ? testPreset : prefs.getString("preset", null),
                 testPreset != null || prefs.getBoolean("locked", false));
+        renderer.pacing = getIntent().getBooleanExtra("pace", true);  // test hook: --ez pace false
         menu = new MenuPanel(this, settings, library, this);
 
         glView = new GLSurfaceView(this);
@@ -431,6 +432,34 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
             menu.refresh();
         }));
     }
+
+    @Override
+    public void onPaced(boolean on) {
+        ui.post(() -> {
+            if (glView == null || on == pacedFrames) return;
+            pacedFrames = on;
+            if (on) {
+                glView.setRenderMode(GLSurfaceView.RENDERMODE_WHEN_DIRTY);
+                android.view.Choreographer.getInstance().postFrameCallback(everySecondVsync);
+            } else {
+                android.view.Choreographer.getInstance().removeFrameCallback(everySecondVsync);
+                glView.setRenderMode(GLSurfaceView.RENDERMODE_CONTINUOUSLY);
+            }
+        });
+    }
+
+    /** UI thread: true while frames are drawn on every second vsync (an even 30 fps). */
+    private boolean pacedFrames;
+    private boolean oddVsync;
+    private final android.view.Choreographer.FrameCallback everySecondVsync = new android.view.Choreographer.FrameCallback() {
+        @Override
+        public void doFrame(long frameTimeNanos) {
+            if (!pacedFrames || glView == null) return;
+            oddVsync = !oddVsync;
+            if (oddVsync) glView.requestRender();
+            android.view.Choreographer.getInstance().postFrameCallback(this);
+        }
+    };
 
     @Override
     public void onWantHeight(int height) {

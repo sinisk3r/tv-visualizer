@@ -55,8 +55,10 @@ access).
 ## S. Feels smooth everywhere (the user's ask, 15-Nov-2026)
 
 Ideas in order of felt gain per effort:
-1. Even frame pacing: when a preset cannot hold ~55 fps, lock to an even 30 (swap interval 2) instead of a
-   wobbly 40-50. Auto must then not read 30 fps as "too slow".
+1. ~~Even frame pacing~~ done 15-Nov-2026: a preset settled at 31-46 fps draws on every second vsync (an even
+   30); Smooth steps down below 55 (was 45) so pacing only applies where 480p cannot reach 60. The TV ignores
+   eglSwapInterval(2), so the activity renders on demand from Choreographer. Judge by eye: is the 46 fps edge
+   right? (green machine 52 fps stays unpaced; interference 39 fps is paced).
 2. ~~CPU performance hints~~ tried 15-Nov-2026, dropped: PerformanceHintManager session (16.7 ms target) made
    no difference on the bench set (each preset within 0.3 fps of hints off). The TV is GPU-bound at 480p.
 3. Right size from the first frame: predict a new preset's size from its features (unbatched shapes, wave samples,
@@ -87,21 +89,61 @@ Read CLAUDE.md and docs/next.md items B and F. Design these into the menu redesi
 the user picks. Numbers: tools/ script writes assets/numbers.txt (number, file name) for the full pack.
 ```
 
-## B. Late-90s player theme for the app's UI
+## B. Menu redesign: the transport bar (with F)
+
+User pick, 15-Nov-2026: **mockup A, transport bar** (`design/mockups/a-transport-bar.html`, published at
+https://claude.ai/artifact/Dm2ckc7ckzTYwxEVmEvpd7): it shows where to look and stays out of the way most. The
+browser (find) panel needs work. User decisions:
+- **Search:** a keyboard of **four rows** of letters (shorter, so results are closer), the **mic button on the
+  right** of the keyboard. Results sit to the right: Right moves into them, Up/Down scroll, Left goes back to
+  the keyboard. Voice: press mic, speak, results appear, press Right.
+- **Number keypad** on screen, for search by channel number and for remotes without number keys.
+- **Shuffle, two modes:** album shuffle (within one set: a style, Featured, favourites, a smart list) and full
+  shuffle (everything available).
+- **Smart favourites:** favourite a whole style or single presets; smart playlists from viewing data (most
+  watched in the last month / three months), so newer presets get the same attention as the classics. Needs a
+  local play log (preset, seconds watched, date), kept on the TV only (privacy policy: no data leaves it).
+- **Detailed settings page** reached from the bar, holding About and every switch: Switch on big beats, Skip
+  heavy presets, Skip deaf presets, Time per preset, Picture (chips: Smooth, Sharp, fixed sizes).
+- No Winamp name, logo or skins and no MilkDrop branding. The menu stays grey.
 
 ```
-Read CLAUDE.md. Goal: give the app's own UI (menu, preset name box, hints) a late-90s desktop media-player
-feel: boxy bevelled panels, green LCD-style text on black, pixel fonts. Inspired by the era, not a copy.
-Rules: no Winamp name, logo, skins or llama, and no MilkDrop branding (trademarks). Fonts must have an open
-licence (e.g. OFL pixel fonts), with the licence noted in README.
+Read CLAUDE.md and docs/next.md items B and F. Rework mockup A's find panel with the decisions above (four-row
+keyboard, mic on the right, results to the right, number keypad, shuffle modes, smart lists, settings page),
+publish it to the same artifact and let the user approve. Then build it in Android (MenuPanel, layouts,
+drawables): fade only, no moving views over the GL view, rows never rebuilt for value changes, views GONE when
+hidden. Check layout and focus on the emulator (AVD tv34), then menu-open fps and dumpsys SurfaceFlinger on the
+TV. Fix the name box showing under the menu. Update README and CLAUDE.md. Commit when the user approves.
+```
 
-1. Make 3-4 distinct mockups as HTML pages at 1920x1080 over a screenshot of the visuals (from the TV, or the
-   emulator). Build them in parallel with subagents. Show me side by side and let me pick.
-2. Build the picked one in Android (MenuPanel, layouts, drawables). Keep the rules learned the hard way:
-   fade only, no moving views over the GL view, rows never rebuilt for value changes.
-3. Check layout and focus on the Android TV emulator (AVD tv34; create it if missing, see CLAUDE.md).
-   Then check it costs no frames on the TV: menu-open fps and dumpsys SurfaceFlinger, against docs/performance.md.
-4. Update CLAUDE.md's Art section (it says the menu stays neutral grey) and README. Commit when I approve.
+## H. HDR picture (idea, 15-Nov-2026)
+
+The TV reports HDR10, HLG, Dolby Vision and HDR10+ (`dumpsys display`). Presets are SDR (8-bit colour), so
+real HDR means expanding them: render as now, then a final pass maps SDR to HDR10 (PQ, BT.2020) with an
+inverse tone curve that lifts only the brightest parts (glows, flashes, beat peaks) while mid-tones stay put.
+Needs an EGL surface with a 10-bit or FP16 format and `EGL_EXT_gl_colorspace_bt2020_pq`.
+
+```
+Read CLAUDE.md. Check the TV's EGL extensions for bt2020_pq / scrgb and 10-bit configs. If present, build a
+test: final blit with an inverse tone curve into a PQ surface, behind a hidden switch. Compare side by side on
+the TV with the user (bright presets: fountains, plasma). Cost: one extra full-screen pass at 4K output.
+Report fps against docs/performance.md. Ask the user before making it a setting.
+```
+
+## U. Your own presets (developers and fans, idea, 15-Nov-2026)
+
+Let people try their own .milk presets on the TV before sharing them. No open upload library exists for
+MilkDrop presets; the shared homes are the projectM preset repos on GitHub (pull requests). Plan:
+- **Add from your phone:** the TV app runs a small web page on the local network (shown as a QR code). Drop
+  .milk files and textures on it; they land in a "My presets" style, ready to play. Nothing leaves the house.
+- **Live edit:** re-load a preset when its file changes, so authors edit on a computer and watch the TV.
+- **Share:** a link explaining how to send good ones upstream (projectM preset repo pull request).
+
+```
+Read CLAUDE.md. Build "Add from your phone": a minimal HTTP server in the app (only while the page is open in the
+menu), a QR code with the TV's local address, upload of .milk and texture files into files/presets/My presets.
+Never log or commit the TV's address. Ask the user before adding the INTERNET permission (it changes the Data
+safety form and privacy policy).
 ```
 
 ## C. Smaller items (pick any when A or B is blocked)
@@ -123,6 +165,8 @@ licence (e.g. OFL pixel fonts), with the licence noted in README.
   hardware (CPU and GPU are logged at start as `device ...` and in the projectM line).
 
 ## Done
+- 15-Nov-2026: even 30 fps pacing for presets that settle at 31-46 fps; Smooth steps down below 55 fps.
+  CPU performance hints tried, no gain (`3290c83`).
 - 15-Nov-2026: shapes after the backport: patch 0002 batches non-additive borders (phlegmployant 12 to 28 fps,
   mother-of-whirl 10 to 35); heavy list 1,654 to 6; learned sizes reset on renderer updates; Smooth/Sharp auto
   picture, Smooth default (`9701f84`, `57aac24`). #1044 TV results posted upstream.

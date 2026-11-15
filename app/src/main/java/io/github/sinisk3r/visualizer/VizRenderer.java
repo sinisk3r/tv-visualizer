@@ -37,6 +37,11 @@ final class VizRenderer implements GLSurfaceView.Renderer {
     private static final float FAST_FPS = 55f;       // at or above this the GPU has room
     private static final long PROBE_AFTER_MS = 10_000; // smooth this long at a lowered size: try one step up
     private static final float TOO_SLOW_FPS = 20f;   // below this at the lowest size: the preset is too heavy here
+    /** A preset that settles between these cannot hold 60: show an even 30 (every second vsync) instead of a
+     *  wobbly 35-45, where frames last one or two vsyncs at random and motion judders. */
+    private static final float PACE_MIN_FPS = 31f;
+    private static final float PACE_MAX_FPS = 46f;
+    private static final float PACED_LOST_FPS = 27f; // paced but below this: it cannot even hold 30, stop pacing
 
     interface Listener {
         /** Called on the GL thread whenever the shown preset, style or hold changes. */
@@ -44,6 +49,8 @@ final class VizRenderer implements GLSurfaceView.Renderer {
         void onError(String message);
         /** Auto picture wants a different render height (GL thread; resize on the UI thread). */
         void onWantHeight(int height);
+        /** Even 30 fps on or off (GL thread). The activity then asks for a frame every second vsync. */
+        void onPaced(boolean on);
     }
 
     private final PresetLibrary library;
@@ -56,6 +63,10 @@ final class VizRenderer implements GLSurfaceView.Renderer {
      * whole 4K picture on the GPU, which costs the visuals frames, so Auto picture does not measure then.
      */
     volatile boolean covered;
+
+    /** Even 30 fps pacing allowed (off for speed tests: tools/tv-bench.sh measures the raw frame rate). */
+    volatile boolean pacing = true;
+    private boolean paced;  // swap interval 2 for the shown preset
 
     /** Set by the activity while it holds the audio capture; read every frame. */
     volatile Visualizer audio;
@@ -171,6 +182,7 @@ final class VizRenderer implements GLSurfaceView.Renderer {
     public void onSurfaceCreated(GL10 unused, EGLConfig config) {
         // A new GL context means projectM's GL objects are gone: start a fresh instance.
         ready = false;
+        setPaced(false);
     }
 
     @Override
@@ -225,7 +237,7 @@ final class VizRenderer implements GLSurfaceView.Renderer {
             step(1, (ev & Native.EV_HARD_CUT) == 0, false);
         }
         countFps();
-        autoPicture();
+        measure();
     }
 
     /** Takes the shown preset out of this session's order and moves on. */
@@ -245,8 +257,8 @@ final class VizRenderer implements GLSurfaceView.Renderer {
         smoothSince = 0;
     }
 
-    private void autoPicture() {
-        if (!settings.isAuto()) return;
+    /** Measures the frame rate in 3 s windows once a preset has settled; Auto picture and pacing act on it. */
+    private void measure() {
         File p = currentPreset();
         if (p == null || surfaceHeight == 0) return;
         long now = SystemClock.uptimeMillis();
@@ -266,19 +278,44 @@ final class VizRenderer implements GLSurfaceView.Renderer {
         windowStart = now;
         windowFrames = 0;
         String name = p.getName();
+        if (paced) {
+            if (fps < PACED_LOST_FPS) {
+                Log.i(TAG, String.format("pace: %.0f fps, cannot hold 30, pacing off: %s", fps, name));
+                setPaced(false);
+                settle(SETTLE_MS);
+            }
+            return;
+        }
+        if (settings.isAuto() && autoPicture(fps, now, name)) return;
+        if (pacing && fps >= PACE_MIN_FPS && fps < PACE_MAX_FPS) {
+            Log.i(TAG, String.format("pace: %.0f fps at %dp, even 30: %s", fps, surfaceHeight, name));
+            setPaced(true);
+        }
+    }
+
+    private void setPaced(boolean on) {
+        if (on == paced) return;
+        paced = on;
+        // Not eglSwapInterval(2): this TV ignores it. The activity draws on demand every second vsync instead.
+        listener.onPaced(on);
+    }
+
+    /** Auto picture: one step down when too slow, one step up after a long fast run. True when it acted. */
+    private boolean autoPicture(float fps, long now, String name) {
         if (fps < TOO_SLOW_FPS && surfaceHeight <= Settings.HEIGHTS[0]) {
             // Already at the smallest picture: the cost is not in pixels (usually hundreds of custom shapes
             // worked out on the CPU), so a smaller picture cannot help. Remember it for "Skip heavy presets".
             Log.i(TAG, String.format("auto: %.0f fps at %dp, too slow: %s", fps, surfaceHeight, name));
             settings.markTooSlow(name, fps);
             if (settings.skipHeavy() && !locked) dropCurrent(true);
-            return;
+            return true;
         }
         if (fps < settings.autoSlowFps() && surfaceHeight > Settings.HEIGHTS[0]) {
             int down = Settings.lower(surfaceHeight);
             Log.i(TAG, String.format("auto: %.0f fps at %dp, down to %dp: %s", fps, surfaceHeight, down, name));
             settings.learn(name, down);
             want(down);
+            return true;
         } else if (fps >= FAST_FPS && surfaceHeight < 1080 && !probed.contains(name)) {
             if (smoothSince == 0) smoothSince = now;
             if (now - smoothSince >= PROBE_AFTER_MS) {
@@ -287,10 +324,12 @@ final class VizRenderer implements GLSurfaceView.Renderer {
                 probed.add(name);
                 settings.learn(name, up);
                 want(up);
+                return true;
             }
         } else {
             smoothSince = 0;
         }
+        return false;
     }
 
     private void want(int height) {
@@ -311,8 +350,9 @@ final class VizRenderer implements GLSurfaceView.Renderer {
         fpsFrames++;
         if (now - fpsStart >= 10_000) {
             File p = currentPreset();
-            Log.i(TAG, String.format("fps %.1f  worst %d ms  slow %d  %dp  %s",
+            Log.i(TAG, String.format("fps %.1f  worst %d ms  slow %d  %dp%s  %s",
                     fpsFrames * 1000f / (now - fpsStart), worstGapNs / 1_000_000, slowFrames, surfaceHeight,
+                    paced ? " paced" : "",
                     p == null ? "-" : p.getName()));
             fpsStart = now;
             fpsFrames = 0;
@@ -385,6 +425,7 @@ final class VizRenderer implements GLSurfaceView.Renderer {
         if (userAction) userPickedAt = SystemClock.uptimeMillis();
         switchAfterGrace = false;
         blendOnce = 0;
+        setPaced(false);  // every preset gets its chance at 60
         if (ready) {
             long t0 = System.nanoTime();
             Native.loadPreset(preset.getPath(), smooth, blend / 1000f);
