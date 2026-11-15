@@ -29,6 +29,9 @@ import java.util.function.Supplier;
  * Remote: Up/Down moves, OK toggles or opens, Left/Right changes a value, Back leaves a style page or closes.
  */
 final class MenuPanel {
+    /** The About page's key in `page` (style pages use the style name). */
+    private static final String ABOUT = "\u0000about";
+
     interface Host {
         File currentPreset();
         boolean isLocked();
@@ -122,7 +125,8 @@ final class MenuPanel {
     private void build(int focusIndex) {
         rows.removeAllViews();
         bindings.clear();
-        if (page != null) buildStylePage(page);
+        if (ABOUT.equals(page)) buildAboutPage();
+        else if (page != null) buildStylePage(page);
         else buildMain();
         refresh();
         act.findViewById(R.id.menu_scroll).scrollTo(0, 0);
@@ -206,6 +210,36 @@ final class MenuPanel {
             host.resolutionChanged();
             refresh();
         }, null);
+        addRow("About and licences", () -> "Version " + versionName(), v -> {
+            returnFocus = rows.indexOfChild(v);
+            page = ABOUT;
+            build(0);
+        }, null);
+    }
+
+    /** Credits and licences. projectM is LGPL-2.1: say so, link its source and our changes to it. The licence
+     *  texts ship in assets/licences. */
+    private void buildAboutPage() {
+        addRow("‹  About", () -> "Back", v -> back(), null);
+        addRow("Visualizer " + versionName(), () -> "MIT licence", null, null);
+        addRow("Source", () -> "github.com/sinisk3r/tv-visualizer", null, null);
+        addHeader("Built with");
+        addRow("projectM 4.1.8", () -> "LGPL-2.1", null, null);
+        addRow("Engine", () -> "github.com/projectM-visualizer", null, null);
+        addRow("Changes", () -> "patches/projectm in our source", null, null);
+        addHeader("Presets and art");
+        addRow("Presets", () -> "Cream of the Crop, by Jason Fletcher", null, null);
+        addRow("Preset authors", () -> "Named in each preset's title", null, null);
+        addRow("Textures", () -> "MilkDrop texture pack", null, null);
+        addRow("App icon", () -> "AI-generated", null, null);
+    }
+
+    private String versionName() {
+        try {
+            return act.getPackageManager().getPackageInfo(act.getPackageName(), 0).versionName;
+        } catch (android.content.pm.PackageManager.NameNotFoundException e) {
+            return "?";
+        }
     }
 
     private void buildStylePage(String style) {
