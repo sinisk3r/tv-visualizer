@@ -272,6 +272,9 @@ Mockup done 15-Nov-2026: A2 screen 7 (published v10). Waiting on the user's yes.
   hardware (CPU and GPU are logged at start as `device ...` and in the projectM line).
 
 ## Done
+- 15-Nov-2026: Featured (001) ships: 50 presets, the user's 19 TV favourites first, then the best Mac-scored picks.
+  Grow it with `tools/update-featured.py` (reads favourites from the TV's start-up log, only ever adds; bump
+  versionCode after). versionCode 5.
 - 15-Nov-2026: settled with the user: Shuffle stays on by default; picking a set under Everything asks on
   screen; 0 then OK plays 01; mute dropped for a scrubber. Preset 5337 (fiShbRaiN - swarming glory): it reacts
   only when bass_att > 1.2 (bass 20% over its own recent average), so it goes quiet in steady loud parts; checked

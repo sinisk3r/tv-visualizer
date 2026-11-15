@@ -224,6 +224,9 @@ final class Settings {
         for (java.util.Map.Entry<String, ?> e : learned.getAll().entrySet()) {
             android.util.Log.i("Visualizer", "learned " + e.getValue() + " " + e.getKey());
         }
+        // Favourites too: they seed assets/featured.txt (tools: adb logcat -s Visualizer | grep "favourite ").
+        for (String f : favouriteOrder) android.util.Log.i("Visualizer", "favourite " + f);
+        for (String st : favouriteStyles) android.util.Log.i("Visualizer", "favourite style " + st);
         for (java.util.Map.Entry<String, ?> e : tooSlow.getAll().entrySet()) {
             android.util.Log.i("Visualizer", "too slow " + e.getValue() + " fps " + e.getKey());
         }
