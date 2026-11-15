@@ -75,6 +75,14 @@ Ideas in order of felt gain per effort:
    gain (~10%). If built: coarser mesh only for presets still under 31 fps at 480p, after the user judges
    whether 16x12 warps look blocky.
 6. Menu drawn inside the GL surface (no 4K composition while open), with B.
+7. Sharpen the stretch (user's idea, 15-Nov-2026): replace the GL_LINEAR blit from the inner size to the
+   surface with a proven one-pass upscaler: AMD FidelityFX CAS (contrast-adaptive sharpening; MIT, one
+   fullscreen pass) or FSR 1 (EASU upscale + RCAS sharpen; MIT, two passes, GLES ports exist). Lets Smooth run a
+   smaller inner size for the same look. Check first on the Mac harness: render presets at 480p and 720p,
+   upscale with linear / CAS / FSR1, compare against a 1080p render (side-by-side PNGs for the user, plus a
+   sharpness score); then cost on the TV (one pass at 720p/1080p on the Mali-G52 is expected ~1-2 ms; must stay
+   under ~5% fps). Watch for halos on thin bright lines (waveforms) and shimmer on fine noise.
+   Rendered thumbnails for comparisons live in `third_party/thumbs/` (gitignored, kept in the repo folder).
 
 ## F. Finding presets: numbers, search, featured (with B)
 
