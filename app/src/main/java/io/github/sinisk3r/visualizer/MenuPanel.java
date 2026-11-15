@@ -59,11 +59,11 @@ final class MenuPanel {
         void downloadPack();
         /** "Downloading 34%" or an error while/after a download; null when idle. */
         String packStatus();
-        /** Frames per second over the last second; 0 when not known yet. */
+        /** Average frames per second over the last 30 s; 0 when not known yet. */
         float fps();
         /** The render height the visuals run at now. */
         int pictureHeight();
-        /** "Show frame rate" or "Show what's playing" changed. */
+        /** "Show what's playing" changed. */
         void displayChanged();
     }
 
@@ -506,10 +506,8 @@ final class MenuPanel {
         return i;
     }
 
-    /** The live frame rate and size only while "Show frame rate" is on (updated every second); otherwise what the
-     *  picture choice does. */
+    /** The average frame rate of the last 30 s and the size now, so the choice shows its effect. */
     private String pictureNow() {
-        if (!settings.showFps()) return BarText.pictureHint(settings.renderHeight());
         String now = BarText.fps(host.fps(), host.pictureHeight());
         return settings.isAuto() ? now : "Fixed " + settings.renderHeight() + "p" + (now.isEmpty() ? "" : "  ·  " + now);
     }
@@ -609,11 +607,6 @@ final class MenuPanel {
         }, v -> {
             settings.forgetLearned();
             host.resolutionChanged();
-            refresh();
-        });
-        toggle(adv, "Show frame rate", settings::showFps, on -> {
-            settings.setShowFps(on);
-            host.displayChanged();
             refresh();
         });
         toggle(adv, "Show what's playing", settings::showPlaying, on -> {

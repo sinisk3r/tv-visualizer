@@ -1,6 +1,7 @@
 package io.github.sinisk3r.visualizer;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
 
@@ -39,16 +40,9 @@ public class BarTextTest {
     }
 
     @Test
-    public void pictureHintWithoutLiveNumbers() {
-        assertEquals("Fluid motion first", BarText.pictureHint(Settings.AUTO));
-        assertEquals("More detail, may be less fluid", BarText.pictureHint(Settings.AUTO_SHARP));
-        assertEquals("Fixed 720p", BarText.pictureHint(720));
-    }
-
-    @Test
     public void fpsLine() {
-        assertEquals("60 fps  ·  720p now", BarText.fps(59.7f, 720));
-        assertEquals("before the first window, the size only", "480p now", BarText.fps(0, 480));
+        assertEquals("about 60 fps  ·  720p", BarText.fps(59.7f, 720));
+        assertEquals("before the first window, the size only", "480p", BarText.fps(0, 480));
         assertEquals("", BarText.fps(60, 0));
     }
 
@@ -71,5 +65,21 @@ public class BarTextTest {
         assertEquals(63 * 1000f / 1011, m.fps(), 0.01);
         m.reset();
         assertEquals(0, m.fps(), 0);
+        assertEquals("a resize keeps the average", 63 * 1000f / 1011, m.average(), 0.01);
+    }
+
+    @Test
+    public void fpsMeterAveragesTheLast30Seconds() {
+        FpsMeter m = new FpsMeter();
+        long t = 0;
+        m.frame(t);
+        // 10 s at 60 fps, then 30 s at 30 fps: the 60s drop out of the average.
+        for (int s = 0; s < 10; s++) for (int i = 0; i < 60; i++) m.frame(t += 1000 / 60 + (i < 40 ? 0 : 1));
+        assertEquals(60, m.average(), 2);
+        for (int s = 0; s < 15; s++) for (int i = 0; i < 30; i++) m.frame(t += 1000 / 30 + (i < 10 ? 1 : 0));
+        float mixed = m.average();
+        assertTrue("both rates in the last 30 s: " + mixed, mixed > 35 && mixed < 55);
+        for (int s = 0; s < 15; s++) for (int i = 0; i < 30; i++) m.frame(t += 1000 / 30 + (i < 10 ? 1 : 0));
+        assertEquals(30, m.average(), 1.5);
     }
 }

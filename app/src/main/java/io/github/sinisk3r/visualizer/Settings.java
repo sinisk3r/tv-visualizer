@@ -40,7 +40,6 @@ final class Settings {
     private volatile boolean skipDeaf;
     private volatile int shuffle;
     private volatile boolean showPlaying;
-    private volatile boolean showFps;
     /** Presets measured too slow on this TV even at the lowest picture size. File names. */
     private final SharedPreferences tooSlow;
     /** Auto picture: preset file name to the height it last ran smoothly at on this TV. */
@@ -67,7 +66,6 @@ final class Settings {
         skipDeaf = prefs.getBoolean("skipDeaf", true);
         shuffle = prefs.getInt("shuffle", SHUFFLE_SET);
         showPlaying = prefs.getBoolean("showPlaying", true);
-        showFps = prefs.getBoolean("showFps", false);
         tooSlow = ctx.getSharedPreferences("too_slow", Context.MODE_PRIVATE);
         int generation = prefs.getInt("rendererGeneration", 1);
         relearning = generation != RENDERER_GENERATION && (!learned.getAll().isEmpty() || !tooSlow.getAll().isEmpty());
@@ -126,14 +124,6 @@ final class Settings {
     void setShowPlaying(boolean on) {
         showPlaying = on;
         prefs.edit().putBoolean("showPlaying", on).apply();
-    }
-
-    /** A small frame rate readout top left. */
-    boolean showFps() { return showFps; }
-
-    void setShowFps(boolean on) {
-        showFps = on;
-        prefs.edit().putBoolean("showFps", on).apply();
     }
 
     boolean isTooSlow(String presetName) { return tooSlow.contains(presetName); }

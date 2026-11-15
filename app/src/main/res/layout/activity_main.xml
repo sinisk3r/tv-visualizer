@@ -61,24 +61,6 @@
             android:textSize="12sp" />
     </LinearLayout>
 
-    <!-- "Show frame rate" readout, top left. GONE unless that setting is on. -->
-    <TextView
-        android:id="@+id/fps_readout"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="top|start"
-        android:layout_marginStart="48dp"
-        android:layout_marginTop="27dp"
-        android:background="@drawable/card_bg"
-        android:fontFamily="monospace"
-        android:paddingStart="8dp"
-        android:paddingTop="3dp"
-        android:paddingEnd="8dp"
-        android:paddingBottom="3dp"
-        android:textColor="#FFECECEE"
-        android:textSize="12sp"
-        android:visibility="gone" />
-
     <!-- The OK menu: the transport bar at the bottom and the cards above it. Built by MenuPanel. Panels that are
          not shown are GONE; everything fades in place (nothing moves or scales over the visuals). -->
     <FrameLayout

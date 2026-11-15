@@ -32,26 +32,22 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
 
     private GLSurfaceView glView;
     private VizRenderer renderer;
-    private TextView title, subtitle, hint, fpsReadout;
+    private TextView title, subtitle, hint;
     private View overlay;
-    /** Frame rate of the visuals, for the settings card and "Show frame rate". */
+    /** Frame rate of the visuals, for the settings card. */
     private final FpsMeter fpsMeter = new FpsMeter();
     private volatile int pictureHeight;
     private volatile String shownCategory = PresetLibrary.ALL;
     private volatile long shownAt = android.os.SystemClock.uptimeMillis();
     /** The preset the tag last showed, so a settings refresh of the same preset does not show it again. */
     private File taggedPreset;
-    /** Once a second while the bar or the frame rate readout is up: clock, progress, fps. */
+    /** Once a second while the bar is up: clock, progress, fps. */
     private final Runnable tick = new Runnable() {
         @Override
         public void run() {
             if (menu != null) menu.tick();
-            if (settings.showFps() && fpsReadout != null) {
-                String s = BarText.fps(fpsMeter.fps(), pictureHeight);
-                if (!s.contentEquals(fpsReadout.getText())) fpsReadout.setText(s);
-            }
             ui.removeCallbacks(this);
-            if ((menu != null && menu.isOpen()) || settings.showFps()) ui.postDelayed(this, 1000);
+            if (menu != null && menu.isOpen()) ui.postDelayed(this, 1000);
         }
     };
     private Visualizer audio;
@@ -79,7 +75,6 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
         title = findViewById(R.id.title);
         subtitle = findViewById(R.id.subtitle);
         hint = findViewById(R.id.hint);
-        fpsReadout = findViewById(R.id.fps_readout);
         prefs = getSharedPreferences("state", MODE_PRIVATE);
         settings = new Settings(this);
         if (settings.relearning) {
@@ -436,8 +431,7 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
     /** Tells Auto picture whether anything is drawn over the visuals (see VizRenderer.covered). */
     private void updateCovered() {
         if (renderer != null) {
-            renderer.covered = overlay.getVisibility() == View.VISIBLE || (menu != null && menu.isOpen())
-                    || fpsReadout.getVisibility() == View.VISIBLE;
+            renderer.covered = overlay.getVisibility() == View.VISIBLE || (menu != null && menu.isOpen());
         }
     }
 
@@ -483,7 +477,7 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
 
     @Override
     public float fps() {
-        return fpsMeter.fps();
+        return fpsMeter.average();
     }
 
     @Override
@@ -493,10 +487,7 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
 
     @Override
     public void displayChanged() {
-        fpsReadout.setVisibility(settings.showFps() ? View.VISIBLE : View.GONE);
         updateCovered();
-        ui.removeCallbacks(tick);
-        ui.post(tick);
     }
 
     @Override

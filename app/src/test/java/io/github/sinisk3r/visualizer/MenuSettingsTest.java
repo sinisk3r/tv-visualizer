@@ -28,7 +28,6 @@ public class MenuSettingsTest {
         Settings s = new Settings(ctx);
         assertEquals("the app always shuffled within the style", Settings.SHUFFLE_SET, s.shuffle());
         assertTrue(s.showPlaying());
-        assertFalse(s.showFps());
     }
 
     @Test
@@ -56,13 +55,10 @@ public class MenuSettingsTest {
     }
 
     @Test
-    public void showPlayingAndShowFpsAreSaved() {
+    public void showPlayingIsSaved() {
         Settings s = new Settings(ctx);
         s.setShowPlaying(false);
-        s.setShowFps(true);
-        Settings again = new Settings(ctx);
-        assertFalse(again.showPlaying());
-        assertTrue(again.showFps());
+        assertFalse(new Settings(ctx).showPlaying());
     }
 
     @Test
