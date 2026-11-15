@@ -608,15 +608,24 @@ final class SearchPanel {
     /** The search field shows what voice is doing; null puts the query back. */
     private void showListening(String note) {
         if (note == null) {
+            fieldStyle(false);
             update();
         } else {
+            fieldStyle(true);
             field.setText(note);
         }
     }
 
     private void flash(String note) {
+        fieldStyle(true);
         field.setText(note);
-        field.postDelayed(this::update, 2500);
+        field.postDelayed(() -> showListening(null), 2500);
+    }
+
+    /** Voice status reads as a note (grey, light italic); typed or heard words as the query (white, bold). */
+    private void fieldStyle(boolean note) {
+        field.setTextColor(note ? 0xFF8A8A90 : 0xFFECECEE);
+        field.setTypeface(note ? Typeface.create(Typeface.DEFAULT, Typeface.ITALIC) : Typeface.DEFAULT_BOLD);
     }
 
     /** Releases the recognizer (the menu or activity is going away). */
