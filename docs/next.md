@@ -133,6 +133,43 @@ hidden. Check layout and focus on the emulator (AVD tv34), then menu-open fps an
 TV. Fix the name box showing under the menu. Update README and CLAUDE.md. Commit when the user approves.
 ```
 
+## T. Tests and code quality (the user's ask, 15-Nov-2026)
+
+Started 15-Nov-2026: JVM tests for Settings and preset names (Robolectric), Python checks for the asset lists
+(numbers never move, bundle has no deaf or heavy presets), CI on every push. Next, in order:
+1. Pull logic out of MainActivity/VizRenderer into plain classes with tests: channel-number entry (digits,
+   timeout, OK, 0 / 00 prefixes), the play order (weighted shuffle, filters, held start preset, `play()`
+   slotting), Auto picture and pacing decisions (feed fps windows, check the size or pacing chosen).
+2. Song and drop detection (`detectSong` in native.cpp) as a host C++ test fed with recorded RMS curves.
+3. UI tests for the new menu (B) on the emulator (AVD tv34, Espresso): focus order, keys, no row rebuilds.
+4. TV checks stay manual but scripted: `tools/tv-bench.sh` before/after any renderer change.
+
+```
+Read CLAUDE.md "Tests". Do step 1 one class at a time: move the logic without changing behaviour, write the
+tests first against today's behaviour, then refactor. Run both suites; CI must stay green.
+```
+
+## M. Music controls and now playing from the visualizer (idea, 15-Nov-2026)
+
+The user's question: control the music app (next, pause) from our remote, and show song, artist and album art.
+- **Controls without any permission:** `AudioManager.dispatchMediaKeyEvent` (next, previous, play/pause) goes to
+  whichever app holds the active media session (Spotify, YouTube Music...).
+- **Song, artist, album art:** `MediaSessionManager.getActiveSessions` gives metadata and artwork, but needs
+  notification access, which the user grants once in TV Settings (this TV has the screen:
+  `NotificationAccessActivity`). Also unlocks exact song changes for D2.
+- **YouTube / YouTube Music cast from a phone:** the casting app plays inside the TV's YouTube app, which stops
+  when our app comes to the front, so nothing reaches us. Spotify Connect keeps playing in the background,
+  which is why it works. Ways around it: Bluetooth from the phone to the TV as a speaker (if the TV accepts
+  A2DP sink; to test), the room mic (item C, no mic feature listed on this TV), or the music app's own
+  background play (YouTube Music Premium on some TVs). To test on the TV with the user.
+
+```
+Read CLAUDE.md. Mock up first (mockup A2): a music strip in the bar (art, title, artist, previous/play/next) and
+in the now-playing tag. After the user agrees: media keys first (no permission), then optional notification
+access with a one-time explainer. Test with Spotify and YouTube Music. Update the privacy policy (metadata stays
+on the TV).
+```
+
 ## H. HDR picture (idea, 15-Nov-2026)
 
 The TV reports HDR10, HLG, Dolby Vision and HDR10+ (`dumpsys display`). Presets are SDR (8-bit colour), so

@@ -34,6 +34,11 @@ features, build and licences; this file covers how to work on it. Keep it under 
   are logged at start: `adb logcat -s Visualizer | grep learned`).
 - After editing `CMakeLists.txt`, `rm -rf app/.cxx`: a reconfigure leaves projectM's `version.h` empty.
 
+## Tests (every change)
+- `./gradlew testDebugUnitTest` (JUnit + Robolectric, `app/src/test`) and `python3 -m unittest discover -s
+  tools/tests`. CI runs both on every push (`.github/workflows/tests.yml`).
+- New logic comes with a test in the same commit; a bug fix comes with a test that failed before it.
+
 ## Testing off the TV (the TV is often busy)
 - Test on the Mac first, the TV last. The TV result is the only one that counts for speed.
 - Speed: a native macOS projectM harness (build it if missing) that renders presets offscreen and reports CPU
