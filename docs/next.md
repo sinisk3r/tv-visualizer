@@ -197,7 +197,7 @@ The user's question: control the music app (next, pause) from our remote, and sh
 - **YouTube / YouTube Music cast from a phone:** the casting app plays inside the TV's YouTube app, which stops
   when our app comes to the front, so nothing reaches us. Spotify Connect keeps playing in the background,
   which is why it works. Ways around it: Bluetooth from the phone to the TV as a speaker (if the TV accepts
-  A2DP sink; to test), the room mic (item C, no mic feature listed on this TV), or the music app's own
+  A2DP sink: checked 15-Nov-2026, this TV has A2dpSinkService and `bluetooth.profile.a2dp.sink.enabled=true`, so it can be a phone's speaker; to test with the user: pair the phone, play YouTube, see if the visuals react), the room mic (item C, no mic feature listed on this TV), or the music app's own
   background play (YouTube Music Premium on some TVs). To test on the TV with the user.
 
 User decisions, 15-Nov-2026: wanted ("one remote for everything"). Ask for notification access only when the
