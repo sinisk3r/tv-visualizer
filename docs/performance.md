@@ -69,3 +69,6 @@ the fix: 1,000+ unbatched ran 10-12 fps, 200-300 ran 29-31 fps, 100 or fewer 39-
   reporting each frame's work. 480p bench set, hints off / on: ants 40.5 / 40.6, phlegmployant 27.4 / 27.7,
   green machine 51.5 / 51.2, interference 39.1 / 39.1, splash 40.1 / 40.2 fps. No gain: frames wait on the GPU,
   not the CPU clock.
+- Coarser per-pixel mesh (15-Nov-2026), 16x12 vs 32x24 at 480p: phlegmployant 27.4 to 30.1 fps, ants on acid
+  40.5 to 41.8, interference pattern 2 39.1 to 39.3. Helps only presets whose per-pixel equations load the CPU;
+  not adopted yet (image cost not judged).

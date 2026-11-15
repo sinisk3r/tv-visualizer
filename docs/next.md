@@ -66,7 +66,10 @@ Ideas in order of felt gain per effort:
 4. True dynamic resolution: render projectM into an internal picture of any size and upscale it ourselves, in
    small steps every ~0.5 s, instead of resizing the surface (1.5 s settle, 4 steps). Resizing resets some trails:
    change on switches or in small steps.
-5. Per-pixel mesh size by preset cost (32x24 now).
+5. Per-pixel mesh size by preset cost (32x24 now). Measured 15-Nov-2026, 480p, 16x12 vs 32x24: phlegmployant
+   27.4 to 30.1 fps (slow frames 27 to 0), ants 40.5 to 41.8, interference 39.1 to 39.3. Only CPU-heavy presets
+   gain (~10%). If built: coarser mesh only for presets still under 31 fps at 480p, after the user judges
+   whether 16x12 warps look blocky.
 6. Menu drawn inside the GL surface (no 4K composition while open), with B.
 
 ## F. Finding presets: numbers, search, featured (with B)
