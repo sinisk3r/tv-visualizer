@@ -62,7 +62,8 @@ Ideas in order of felt gain per effort:
 2. ~~CPU performance hints~~ tried 15-Nov-2026, dropped: PerformanceHintManager session (16.7 ms target) made
    no difference on the bench set (each preset within 0.3 fps of hints off). The TV is GPU-bound at 480p.
 3. Right size from the first frame: predict a new preset's size from its features (unbatched shapes, wave samples,
-   shader length, blur) instead of a guess corrected after ~3 s.
+   shader length, blur) instead of a guess corrected after ~3 s. Parked 15-Nov-2026: the controller now corrects
+   within 0.5-1 s, size steps are invisible (patch 0004), and replays start at the learned size; little to gain.
 4. True dynamic resolution: render projectM into an internal picture of any size and upscale it ourselves, in
    small steps every ~0.5 s, instead of resizing the surface (1.5 s settle, 4 steps). In progress (user asked,
    15-Nov-2026): step 1 done (patch 0003, inner size + stretch, test hook `INNER=480 tools/tv-bench.sh 720`;
@@ -235,8 +236,9 @@ MilkDrop presets; the shared homes are the projectM preset repos on GitHub (pull
 ```
 Read CLAUDE.md. Build "Add from your phone": a minimal HTTP server in the app (only while the page is open in the
 menu), a QR code with the TV's local address, upload of .milk and texture files into files/presets/My presets.
-Never log or commit the TV's address. Ask the user before adding the INTERNET permission (it changes the Data
-safety form and privacy policy).
+Never log or commit the TV's address. INTERNET is already in the manifest (full pack, demo songs), but a server
+listening on the home network changes the privacy policy and Data safety form: mock up the page (QR, upload list)
+and ask the user first.
 ```
 
 ## C. Smaller items (pick any when A or B is blocked)
