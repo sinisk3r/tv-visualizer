@@ -93,7 +93,8 @@ final class MusicCard {
         card.setBackgroundResource(R.drawable.card_bg);
         card.setPadding(dp(8), dp(8), dp(8), dp(8));
         card.setVisibility(View.GONE);
-        FrameLayout.LayoutParams cl = new FrameLayout.LayoutParams(dp(320), ViewGroup.LayoutParams.WRAP_CONTENT,
+        // 288 dp, not the mockup's 320: the bar's Previous label (above the button) would run under a wider card.
+        FrameLayout.LayoutParams cl = new FrameLayout.LayoutParams(dp(288), ViewGroup.LayoutParams.WRAP_CONTENT,
                 Gravity.BOTTOM | Gravity.START);
         cl.leftMargin = dp(48);
         cl.bottomMargin = dp(78);
