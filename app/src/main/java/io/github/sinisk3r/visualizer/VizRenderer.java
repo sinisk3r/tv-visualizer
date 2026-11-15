@@ -88,6 +88,11 @@ final class VizRenderer implements GLSurfaceView.Renderer {
         this.listener = listener;
         category = startCategory;
         rebuild(startPreset);
+        if (startLocked && startPreset != null && currentPreset() == null && new File(startPreset).isFile()) {
+            // A held preset stays on even if a filter (heavy, deaf, a style switched off) would skip it.
+            order.add(0, new File(startPreset));
+            position = 0;
+        }
         locked = startLocked && currentPreset() != null && currentPreset().getPath().equals(startPreset);
     }
 

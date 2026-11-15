@@ -81,10 +81,15 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
 
     private void startVisuals(PresetLibrary library) {
         if (isDestroyed()) return;
+        // Test hook (adb): start on one preset, held, at a fixed picture height, without touching saved settings:
+        // am start -n .../.MainActivity --es preset <path on the TV> --ei height 480
+        String testPreset = getIntent().getStringExtra("preset");
+        int testHeight = getIntent().getIntExtra("height", 0);
+        if (testHeight > 0) settings.overrideHeight(testHeight);
         renderer = new VizRenderer(library, settings, library.textureSearchPath(this), this,
                 prefs.getString("category", PresetLibrary.ALL),
-                prefs.getString("preset", null),
-                prefs.getBoolean("locked", false));
+                testPreset != null ? testPreset : prefs.getString("preset", null),
+                testPreset != null || prefs.getBoolean("locked", false));
         menu = new MenuPanel(this, settings, library, this);
 
         glView = new GLSurfaceView(this);

@@ -81,6 +81,11 @@ final class Settings {
         return (height * 16 / 9 + 1) & ~1;  // even width: 480p is 854x480
     }
 
+    /** For tests: a fixed picture height for this run only (not saved). */
+    void overrideHeight(int height) {
+        renderHeight = height;
+    }
+
     void stepPicture(int delta) {
         int i = 0;
         while (i < PICTURE_CHOICES.length - 1 && PICTURE_CHOICES[i] != renderHeight) i++;

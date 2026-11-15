@@ -39,15 +39,23 @@ compiled shaders for the process (a revisited preset went from 103 to 35 ms), so
 64x36 projectM on its own thread and GL context and loads the next preset there first. First-time loads then
 take ~17-80 ms. It skips presets that use `gmegabuf`, which projectM shares between instances without a lock.
 
-## The planned projectM fix: batch custom shapes
+## The projectM fix: batched custom shapes (done 15-Nov-2026)
 
-In `src/libprojectM/MilkdropPreset/CustomShape.cpp` (v4.1.8), `Draw()` loops over instances, and each one binds a
-shader, calls `glBufferSubData` on the same buffer, and draws a triangle fan, then a line loop for the border
-(4 times for thick borders). On mobile drivers, rewriting a buffer that an earlier draw in the same frame still
-uses forces a copy or a stall.
+`patches/projectm/0001-batch-custom-shape-draws.patch`, applied to the v4.1.8 submodule at build time, backports
+upstream pull request [#1044](https://github.com/projectM-visualizer/projectm/pull/1044) (open, targets `master`):
+consecutive instances with the same blend mode and texturing become one triangle list and one draw call, and the
+borders of additive instances one line list. Non-additive borders still draw per instance, in order.
 
-Plan: build every instance's vertices into one buffer per frame (fans as triangles, borders as lines), then
-draw each run of instances that share state (textured, additive, thick) with one call. Upstream `master` has
-reworked this file since 4.1.8 (`6095f3228 Use Mesh class in Custom Shape effect`), so write the change against
-`master` for an upstream pull request, then backport it to the version the app builds. Search the upstream issues
-first for earlier work. Measure with the "ants on acid" preset held, at 480p.
+Measured on this TV, preset held at 480p, `tools/tv-bench.sh 480 <preset>` (one 10 s window after a 10 s settle):
+
+| Preset | Shapes per frame | Before (fps) | After (fps) |
+|---|---|---|---|
+| cope - ants on acid orchestrate chaos - flx roam i hate myself | 1,257 | 9.9 | 30.9 |
+| martin - amandio c - a different view of the green machine (additive, thick borders) | 809 | 15.5 | 54.8 |
+| suksma - phlegmployant (non-additive borders) | 1,046 | 7.2 | 12.1 |
+| suksma - big swede (additive fills) | 512 | 22.8 | 60.0 |
+| amandio c - interference pattern 2 (plain fills) | 501 | 23.8 | 39.4 |
+
+What is left: non-additive borders (one draw per instance and outline pass), and the per-instance equations on the
+CPU. "Skip heavy presets" and `heavy.txt` (200+ instances) were set before this fix and now skip many presets that
+run fine; see docs/next.md.

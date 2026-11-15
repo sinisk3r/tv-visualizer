@@ -1,0 +1,456 @@
+diff --git a/src/libprojectM/MilkdropPreset/CustomShape.cpp b/src/libprojectM/MilkdropPreset/CustomShape.cpp
+index 755d85529..8b6a79d2c 100644
+--- a/src/libprojectM/MilkdropPreset/CustomShape.cpp
++++ b/src/libprojectM/MilkdropPreset/CustomShape.cpp
+@@ -5,6 +5,7 @@
+ #include <Renderer/TextureManager.hpp>
+ #include <Renderer/RenderItem.hpp>
+ 
++#include <array>
+ #include <vector>
+ 
+ namespace libprojectM {
+@@ -47,6 +48,15 @@ CustomShape::CustomShape(PresetState& presetState)
+ 
+     glBufferData(GL_ARRAY_BUFFER, sizeof(TexturedPoint) * vertexData.size(), vertexData.data(), GL_STREAM_DRAW);
+ 
++    glGenVertexArrays(1, &m_vaoIdOutlineBatch);
++    glGenBuffers(1, &m_vboIdOutlineBatch);
++    glBindVertexArray(m_vaoIdOutlineBatch);
++    glBindBuffer(GL_ARRAY_BUFFER, m_vboIdOutlineBatch);
++    glEnableVertexAttribArray(0);
++    glEnableVertexAttribArray(1);
++    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(TexturedPoint), reinterpret_cast<void*>(offsetof(TexturedPoint, x))); // Position
++    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(TexturedPoint), reinterpret_cast<void*>(offsetof(TexturedPoint, r))); // Color
++
+     RenderItem::Init();
+ 
+     m_perFrameContext.RegisterBuiltinVariables();
+@@ -59,6 +69,9 @@ CustomShape::~CustomShape()
+ 
+     glDeleteBuffers(1, &m_vboIdUntextured);
+     glDeleteVertexArrays(1, &m_vaoIdUntextured);
++
++    glDeleteBuffers(1, &m_vboIdOutlineBatch);
++    glDeleteVertexArrays(1, &m_vaoIdOutlineBatch);
+ }
+ 
+ void CustomShape::InitVertexAttrib()
+@@ -130,74 +143,57 @@ void CustomShape::Draw()
+ 
+     glEnable(GL_BLEND);
+ 
+-    for (int instance = 0; instance < m_instances; instance++)
+-    {
+-        m_perFrameContext.LoadStateVariables(m_presetState, *this, instance);
+-        m_perFrameContext.ExecutePerFrameCode();
++    // Shape fills are batched: consecutive instances that share a blend mode and texturing are collected in
++    // m_batch as one triangle list and drawn with a single call. A draw call and a buffer update per instance (a
++    // shape can have up to 1024) is very slow on drivers with a high per-draw cost (mobile GPUs, OpenGL over
++    // Metal). Borders are drawn per instance right after flushing the batch, so the draw order stays exactly the
++    // same, except for additive instances: additive blending is order-independent, so their borders are collected
++    // in m_outlineBatch as a line list and drawn right after the fills.
++    // Backport of projectM pull request #1044 (fa7ad) to the 4.1 renderer.
++    m_batch.clear();
++    m_outlineBatch.clear();
++    bool batchAdditive{false};
++    bool batchTextured{false};
++
++    // Aspect used for the UVs of textured instances; depends only on the shape's image.
++    bool imageAspectKnown{false};
++    float imageAspectY{1.0f};
++
++    // Need to use +/- 1.0 here instead of 2.0 used in Milkdrop to achieve the same rendering result.
++    const auto incrementX = 1.0f / static_cast<float>(m_presetState.renderContext.viewportSizeX);
++    const auto incrementY = 1.0f / static_cast<float>(m_presetState.renderContext.viewportSizeY);
++
++    // If thick outline is used, the border is drawn four times with slight offsets
++    // (top left, top right, bottom right, bottom left).
++    const std::array<ShapeVertex, 4> outlineOffsets{{{0.0f, 0.0f}, {incrementX, 0.0f}, {incrementX, incrementY}, {0.0f, incrementY}}};
++    const auto iterations = m_thickOutline ? 4 : 1;
++
++    const auto bindOutlineState = [&]() {
++        m_presetState.untexturedShader.Bind();
++        m_presetState.untexturedShader.SetUniformMat4x4("vertex_transformation", PresetState::orthogonalProjection);
++        m_presetState.untexturedShader.SetUniformFloat("vertex_point_size", 1.0f);
++        glLineWidth(1);
++#ifndef USE_GLES
++        glEnable(GL_LINE_SMOOTH);
++#endif
++    };
+ 
+-        int sides = static_cast<int>(*m_perFrameContext.sides);
+-        if (sides < 3)
+-        {
+-            sides = 3;
+-        }
+-        if (sides > 100)
++    const auto flushBatch = [&]() {
++        if (m_batch.empty())
+         {
+-            sides = 100;
++            return;
+         }
+ 
+         // Additive Drawing or Overwrite
+-        glBlendFunc(GL_SRC_ALPHA, static_cast<int>(*m_perFrameContext.additive) != 0 ? GL_ONE : GL_ONE_MINUS_SRC_ALPHA);
+-
+-        std::vector<TexturedPoint> vertexData(sides + 2);
+-
+-        vertexData[0].x = static_cast<float>(*m_perFrameContext.x * 2.0 - 1.0);
+-        vertexData[0].y = static_cast<float>(*m_perFrameContext.y * -2.0 + 1.0);
+-
+-        vertexData[0].u = 0.5f;
+-        vertexData[0].v = 0.5f;
+-
+-        // x = f*255.0 & 0xFF = (f*255.0) % 256
+-        // f' = x/255.0 = f % (256/255)
+-        // 1.0 -> 255 (0xFF)
+-        // 2.0 -> 254 (0xFE)
+-        // -1.0 -> 0x01
+-
+-        vertexData[0].r = Renderer::color_modulo(*m_perFrameContext.r);
+-        vertexData[0].g = Renderer::color_modulo(*m_perFrameContext.g);
+-        vertexData[0].b = Renderer::color_modulo(*m_perFrameContext.b);
+-        vertexData[0].a = Renderer::color_modulo(*m_perFrameContext.a);
+-
+-        vertexData[1].r = Renderer::color_modulo(*m_perFrameContext.r2);
+-        vertexData[1].g = Renderer::color_modulo(*m_perFrameContext.g2);
+-        vertexData[1].b = Renderer::color_modulo(*m_perFrameContext.b2);
+-        vertexData[1].a = Renderer::color_modulo(*m_perFrameContext.a2);
++        glBlendFunc(GL_SRC_ALPHA, batchAdditive ? GL_ONE : GL_ONE_MINUS_SRC_ALPHA);
+ 
+-        for (int i = 1; i < sides + 1; i++)
+-        {
+-            const float cornerProgress = static_cast<float>(i - 1) / static_cast<float>(sides);
+-            const float angle = cornerProgress * pi * 2.0f + static_cast<float>(*m_perFrameContext.ang) + pi * 0.25f;
+-
+-            // Todo: There's still some issue with aspect ratio here, as everything gets squashed horizontally if Y > x.
+-            vertexData[i].x = vertexData[0].x + static_cast<float>(*m_perFrameContext.rad) * cosf(angle) * m_presetState.renderContext.aspectY;
+-            vertexData[i].y = vertexData[0].y + static_cast<float>(*m_perFrameContext.rad) * sinf(angle);
+-
+-            vertexData[i].r = vertexData[1].r;
+-            vertexData[i].g = vertexData[1].g;
+-            vertexData[i].b = vertexData[1].b;
+-            vertexData[i].a = vertexData[1].a;
+-        }
+-
+-        // Duplicate last vertex.
+-        vertexData[sides + 1] = vertexData[1];
+-
+-        if (static_cast<int>(*m_perFrameContext.textured) != 0)
++        if (batchTextured)
+         {
+             m_presetState.texturedShader.Bind();
+             m_presetState.texturedShader.SetUniformMat4x4("vertex_transformation", PresetState::orthogonalProjection);
+             m_presetState.texturedShader.SetUniformInt("texture_sampler", 0);
+ 
+             // Textured shape, either main texture or texture from "image" key
+-            auto textureAspectY = m_presetState.renderContext.aspectY;
+             if (m_image.empty())
+             {
+                 assert(!m_presetState.mainTexture.expired());
+@@ -209,7 +205,6 @@ void CustomShape::Draw()
+                 if (!desc.Empty())
+                 {
+                     desc.Bind(0, m_presetState.texturedShader);
+-                    textureAspectY = 1.0f;
+                 }
+                 else
+                 {
+@@ -222,114 +217,197 @@ void CustomShape::Draw()
+             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+ 
+-            for (int i = 1; i < sides + 1; i++)
+-            {
+-                const float cornerProgress = static_cast<float>(i - 1) / static_cast<float>(sides);
+-                const float angle = cornerProgress * pi * 2.0f + static_cast<float>(*m_perFrameContext.tex_ang) + pi * 0.25f;
++            glBindVertexArray(m_vaoIdTextured);
++            glBindBuffer(GL_ARRAY_BUFFER, m_vboIdTextured);
++        }
++        else
++        {
++            // Untextured (creates a color gradient: center=r/g/b/a to border=r2/b2/g2/a2)
++            m_presetState.untexturedShader.Bind();
++            m_presetState.untexturedShader.SetUniformMat4x4("vertex_transformation", PresetState::orthogonalProjection);
++            m_presetState.untexturedShader.SetUniformFloat("vertex_point_size", 1.0f);
+ 
+-                vertexData[i].u = 0.5f + 0.5f * cosf(angle) / static_cast<float>(*m_perFrameContext.tex_zoom) * textureAspectY;
+-                vertexData[i].v = 1.0f - (0.5f - 0.5f * sinf(angle) / static_cast<float>(*m_perFrameContext.tex_zoom)); // Vertical flip required!
+-            }
++            glBindVertexArray(m_vaoIdUntextured);
++            glBindBuffer(GL_ARRAY_BUFFER, m_vboIdUntextured);
++        }
+ 
+-            vertexData[sides + 1] = vertexData[1];
++        // A fresh buffer each time (orphaning), so the driver never waits for an earlier draw from the same buffer.
++        glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(sizeof(TexturedPoint) * m_batch.size()), m_batch.data(), GL_STREAM_DRAW);
++        glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(m_batch.size()));
++        glBindVertexArray(0);
+ 
+-            glBindBuffer(GL_ARRAY_BUFFER, m_vboIdTextured);
++        if (batchTextured)
++        {
++            glBindTexture(GL_TEXTURE_2D, 0);
++            Renderer::Sampler::Unbind(0);
++        }
+ 
+-            glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(TexturedPoint) * (sides + 2), vertexData.data());
++        m_batch.clear();
+ 
+-            glBindVertexArray(m_vaoIdTextured);
+-            glDrawArrays(GL_TRIANGLE_FAN, 0, sides + 2);
++        // Borders of the additive instances just drawn, with the same blend function.
++        if (!m_outlineBatch.empty())
++        {
++            bindOutlineState();
++            glBindVertexArray(m_vaoIdOutlineBatch);
++            glBindBuffer(GL_ARRAY_BUFFER, m_vboIdOutlineBatch);
++            glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(sizeof(TexturedPoint) * m_outlineBatch.size()), m_outlineBatch.data(), GL_STREAM_DRAW);
++            glDrawArrays(GL_LINES, 0, static_cast<GLsizei>(m_outlineBatch.size()));
+             glBindVertexArray(0);
+ 
+-            glBindTexture(GL_TEXTURE_2D, 0);
+-            Renderer::Sampler::Unbind(0);
++            m_outlineBatch.clear();
+         }
+-        else
++    };
++
++    for (int instance = 0; instance < m_instances; instance++)
++    {
++        m_perFrameContext.LoadStateVariables(m_presetState, *this, instance);
++        m_perFrameContext.ExecutePerFrameCode();
++
++        int sides = static_cast<int>(*m_perFrameContext.sides);
++        if (sides < 3)
+         {
+-            // Untextured (creates a color gradient: center=r/g/b/a to border=r2/b2/g2/a2)
+-            glBindBuffer(GL_ARRAY_BUFFER, m_vboIdUntextured);
++            sides = 3;
++        }
++        if (sides > 100)
++        {
++            sides = 100;
++        }
+ 
+-            glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(TexturedPoint) * (sides + 2), vertexData.data());
++        const bool additive = static_cast<int>(*m_perFrameContext.additive) != 0;
++        const bool textured = static_cast<int>(*m_perFrameContext.textured) != 0;
+ 
+-            m_presetState.untexturedShader.Bind();
+-            m_presetState.untexturedShader.SetUniformMat4x4("vertex_transformation", PresetState::orthogonalProjection);
+-            m_presetState.untexturedShader.SetUniformFloat("vertex_point_size", 1.0f);
++        // The batch can only hold instances drawn with identical state.
++        if (additive != batchAdditive || textured != batchTextured)
++        {
++            flushBatch();
++            batchAdditive = additive;
++            batchTextured = textured;
++        }
+ 
+-            glBindVertexArray(m_vaoIdUntextured);
+-            glDrawArrays(GL_TRIANGLE_FAN, 0, sides + 2);
+-            glBindVertexArray(0);
++        TexturedPoint center;
++        center.x = static_cast<float>(*m_perFrameContext.x * 2.0 - 1.0);
++        center.y = static_cast<float>(*m_perFrameContext.y * -2.0 + 1.0);
++        center.u = 0.5f;
++        center.v = 0.5f;
++
++        // x = f*255.0 & 0xFF = (f*255.0) % 256
++        // f' = x/255.0 = f % (256/255)
++        // 1.0 -> 255 (0xFF)
++        // 2.0 -> 254 (0xFE)
++        // -1.0 -> 0x01
++
++        center.r = Renderer::color_modulo(*m_perFrameContext.r);
++        center.g = Renderer::color_modulo(*m_perFrameContext.g);
++        center.b = Renderer::color_modulo(*m_perFrameContext.b);
++        center.a = Renderer::color_modulo(*m_perFrameContext.a);
++
++        std::array<TexturedPoint, 100> edge;
++        const float edgeR = Renderer::color_modulo(*m_perFrameContext.r2);
++        const float edgeG = Renderer::color_modulo(*m_perFrameContext.g2);
++        const float edgeB = Renderer::color_modulo(*m_perFrameContext.b2);
++        const float edgeA = Renderer::color_modulo(*m_perFrameContext.a2);
++
++        if (textured && !imageAspectKnown)
++        {
++            imageAspectY = m_presetState.renderContext.aspectY;
++            if (!m_image.empty() && !m_presetState.renderContext.textureManager->GetTexture(m_image).Empty())
++            {
++                imageAspectY = 1.0f;
++            }
++            imageAspectKnown = true;
++        }
++
++        for (int i = 0; i < sides; i++)
++        {
++            const float cornerProgress = static_cast<float>(i) / static_cast<float>(sides);
++            const float angle = cornerProgress * pi * 2.0f + static_cast<float>(*m_perFrameContext.ang) + pi * 0.25f;
++
++            // Todo: There's still some issue with aspect ratio here, as everything gets squashed horizontally if Y > x.
++            edge[i].x = center.x + static_cast<float>(*m_perFrameContext.rad) * cosf(angle) * m_presetState.renderContext.aspectY;
++            edge[i].y = center.y + static_cast<float>(*m_perFrameContext.rad) * sinf(angle);
++            edge[i].r = edgeR;
++            edge[i].g = edgeG;
++            edge[i].b = edgeB;
++            edge[i].a = edgeA;
++
++            if (textured)
++            {
++                const float texAngle = cornerProgress * pi * 2.0f + static_cast<float>(*m_perFrameContext.tex_ang) + pi * 0.25f;
++                edge[i].u = 0.5f + 0.5f * cosf(texAngle) / static_cast<float>(*m_perFrameContext.tex_zoom) * imageAspectY;
++                edge[i].v = 1.0f - (0.5f - 0.5f * sinf(texAngle) / static_cast<float>(*m_perFrameContext.tex_zoom)); // Vertical flip required!
++            }
++        }
++
++        // The triangle fan around the center, as a triangle list.
++        for (int i = 0; i < sides; i++)
++        {
++            m_batch.push_back(center);
++            m_batch.push_back(edge[i]);
++            m_batch.push_back(edge[(i + 1) % sides]);
+         }
+ 
+         if (*m_perFrameContext.border_a > 0.0001f)
+         {
+-            std::vector<ShapeVertex> points(sides);
++            const float borderR = static_cast<float>(*m_perFrameContext.border_r);
++            const float borderG = static_cast<float>(*m_perFrameContext.border_g);
++            const float borderB = static_cast<float>(*m_perFrameContext.border_b);
++            const float borderA = static_cast<float>(*m_perFrameContext.border_a);
+ 
+-            for (int i = 0; i < sides; i++)
++            if (additive)
+             {
+-                points[i].x = vertexData[i + 1].x;
+-                points[i].y = vertexData[i + 1].y;
++                // Each loop edge as its own line segment, once per thick-outline offset.
++                for (auto iteration = 0; iteration < iterations; iteration++)
++                {
++                    const auto& offset = outlineOffsets[iteration];
++                    for (int i = 0; i < sides; i++)
++                    {
++                        const auto& from = edge[i];
++                        const auto& to = edge[(i + 1) % sides];
++                        TexturedPoint p;
++                        p.r = borderR;
++                        p.g = borderG;
++                        p.b = borderB;
++                        p.a = borderA;
++                        p.x = from.x + offset.x;
++                        p.y = from.y + offset.y;
++                        m_outlineBatch.push_back(p);
++                        p.x = to.x + offset.x;
++                        p.y = to.y + offset.y;
++                        m_outlineBatch.push_back(p);
++                    }
++                }
++                continue;
+             }
+ 
+-            m_presetState.untexturedShader.Bind();
+-            m_presetState.untexturedShader.SetUniformMat4x4("vertex_transformation", PresetState::orthogonalProjection);
+-            m_presetState.untexturedShader.SetUniformFloat("vertex_point_size", 1.0f);
++            // Draw everything collected so far, this instance's fill included, before its border.
++            flushBatch();
+ 
+-            glVertexAttrib4f(1,
+-                             static_cast<float>(*m_perFrameContext.border_r),
+-                             static_cast<float>(*m_perFrameContext.border_g),
+-                             static_cast<float>(*m_perFrameContext.border_b),
+-                             static_cast<float>(*m_perFrameContext.border_a));
+-            glLineWidth(1);
+-#ifndef USE_GLES
+-            glEnable(GL_LINE_SMOOTH);
+-#endif
++            std::array<ShapeVertex, 100> points;
++
++            bindOutlineState();
++            glVertexAttrib4f(1, borderR, borderG, borderB, borderA);
+ 
+             glBindVertexArray(m_vaoID);
+             glBindBuffer(GL_ARRAY_BUFFER, m_vboID);
+ 
+-            const auto iterations = m_thickOutline ? 4 : 1;
+-
+-            // Need to use +/- 1.0 here instead of 2.0 used in Milkdrop to achieve the same rendering result.
+-            const auto incrementX = 1.0f / static_cast<float>(m_presetState.renderContext.viewportSizeX);
+-            const auto incrementY = 1.0f / static_cast<float>(m_presetState.renderContext.viewportSizeY);
+-
+-            // If thick outline is used, draw the shape four times with slight offsets
+-            // (top left, top right, bottom right, bottom left).
+             for (auto iteration = 0; iteration < iterations; iteration++)
+             {
+-                switch (iteration)
++                const auto& offset = outlineOffsets[iteration];
++                for (int i = 0; i < sides; i++)
+                 {
+-                    case 0:
+-                        break;
+-
+-                    case 1:
+-                        for (auto j = 0; j < sides; j++)
+-                        {
+-                            points[j].x += incrementX;
+-                        }
+-                        break;
+-
+-                    case 2:
+-                        for (auto j = 0; j < sides; j++)
+-                        {
+-                            points[j].y += incrementY;
+-                        }
+-                        break;
+-
+-                    case 3:
+-                        for (auto j = 0; j < sides; j++)
+-                        {
+-                            points[j].x -= incrementX;
+-                        }
+-                        break;
++                    points[i].x = edge[i].x + offset.x;
++                    points[i].y = edge[i].y + offset.y;
+                 }
+ 
+-                glBufferSubData(GL_ARRAY_BUFFER, 0, static_cast<GLsizei>(sizeof(Point) * sides), points.data());
++                glBufferSubData(GL_ARRAY_BUFFER, 0, static_cast<GLsizei>(sizeof(ShapeVertex) * sides), points.data());
+                 glDrawArrays(GL_LINE_LOOP, 0, sides);
+             }
++            glBindVertexArray(0);
+         }
+     }
+ 
++    flushBatch();
++
+     glBindBuffer(GL_ARRAY_BUFFER, 0);
+     glBindVertexArray(0);
+ 
+diff --git a/src/libprojectM/MilkdropPreset/CustomShape.hpp b/src/libprojectM/MilkdropPreset/CustomShape.hpp
+index 5ecb23eb0..e31daa58d 100644
+--- a/src/libprojectM/MilkdropPreset/CustomShape.hpp
++++ b/src/libprojectM/MilkdropPreset/CustomShape.hpp
+@@ -1,5 +1,7 @@
+ #pragma once
+ 
++#include <vector>
++
+ #include "Constants.hpp"
+ #include "PresetState.hpp"
+ #include "ShapePerFrameContext.hpp"
+@@ -99,6 +101,12 @@ private:
+     GLuint m_vboIdUntextured{0}; //!< Vertex buffer object ID for an untextured shape.
+     GLuint m_vaoIdUntextured{0}; //!< Vertex array object ID for an untextured shape.
+ 
++    GLuint m_vboIdOutlineBatch{0}; //!< Vertex buffer object ID for the batched borders of additive instances.
++    GLuint m_vaoIdOutlineBatch{0}; //!< Vertex array object ID for the batched borders of additive instances.
++
++    std::vector<TexturedPoint> m_batch;        //!< Fills of consecutive instances with identical state, as triangles.
++    std::vector<TexturedPoint> m_outlineBatch; //!< Borders of the additive instances in m_batch, as line segments.
++
+     friend class ShapePerFrameContext;
+ };
+ 

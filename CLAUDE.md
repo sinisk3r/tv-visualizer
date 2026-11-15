@@ -15,12 +15,15 @@ features, build and licences; this file covers how to work on it. Keep it under 
   `make-reactivity-list.py` (assets/reactivity.txt: audio use, play weights),
   `colour-logo.py` (needs Pillow + numpy).
 - `docs/performance.md`: what makes presets slow on TVs, measurements, the planned projectM shape fix.
-- `third_party/projectm`: submodule at v4.1.8. Preset/texture packs in `third_party/presets-*` are gitignored.
+- `third_party/projectm`: submodule at v4.1.8, with `patches/projectm/*.patch` applied by CMake at build time (so
+  it shows as modified). Preset/texture packs in `third_party/presets-*` are gitignored.
 
 ## Build and test
 - `ANDROID_HOME=/opt/homebrew/share/android-commandlinetools JAVA_HOME=/opt/homebrew/opt/openjdk@17 ./gradlew assembleRelease`
   (NDK 27.2.12479018, CMake 3.22.1). Then `adb install -r app/build/outputs/apk/release/app-release.apk`.
 - Test on a real TV over wireless ADB. Logs: `adb logcat -s Visualizer` (fps every 10 s, Auto picture steps).
+- Speed of given presets on the TV: `tools/tv-bench.sh 480 "<preset path on the TV>" ...` (holds each at 480p,
+  ignoring filters; test hook: `am start ... --es preset <path> --ei height 480`). Run one bench at a time.
 - Grant audio without the dialog: `adb shell pm grant io.github.sinisk3r.visualizer android.permission.RECORD_AUDIO`.
 - Drive the remote one key per `adb shell input keyevent <code>` call with ~0.5 s between; batched key lists
   have toggled the wrong rows. Screenshot: `adb exec-out screencap -p > shot.png`.
