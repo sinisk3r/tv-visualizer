@@ -135,6 +135,12 @@ browser (find) panel needs work. User decisions:
 - No Winamp name, logo or skins and no MilkDrop branding. The menu stays grey.
 - **Shuffle Everything and Up/Down (15-Nov-2026):** changing style with Shuffle on Everything asks on screen
   ("Shuffle this style only? OK"); OK switches to This set, anything else keeps Everything. Add to mockup A2.
+- **Style pages (user, 15-Nov-2026):** the style title stays at the top while scrolling, with a back button and
+  a play icon beside it. Sub-style cards get two icons at the end instead of a whole-card highlight: play (play
+  just that sub-style) and an eye (on/off). Show channel numbers per sub-style so it can be typed (the user's
+  example: Geometric > Cathedral starts at 1001, 19 presets, so Circles Nested is 1020). Open question: preset
+  numbers are fixed and not grouped by style, so sub-styles need their own numbers (like playlists) or the list
+  shows each preset's own number. Also find what says "playlist not available" inside a style. Mockup first.
 - **Fps readout (15-Nov-2026):** dropped at the user's call; the settings card shows the 30 s average instead.
 
 ```
@@ -152,7 +158,7 @@ Started 15-Nov-2026: JVM tests for Settings and preset names (Robolectric), Pyth
 (numbers never move, bundle has no deaf or heavy presets), CI on every push. Next, in order:
 1. Pull logic out of MainActivity/VizRenderer into plain classes with tests: ~~channel-number entry~~
    (`ChannelEntry`, done), ~~Auto picture and pacing decisions~~ (`FrameRatePolicy`, done, checked on the TV),
-   next the play order (weighted shuffle, filters, held start preset, `play()` slotting).
+   ~~the play order~~ (`PlayOrder`, 11 tests, done 15-Nov-2026). Step 1 is done.
 2. Song and drop detection (`detectSong` in native.cpp) as a host C++ test fed with recorded RMS curves.
 3. UI tests for the new menu (B) on the emulator (AVD tv34, Espresso): focus order, keys, no row rebuilds.
 4. TV checks stay manual but scripted: `tools/tv-bench.sh` before/after any renderer change.
@@ -240,6 +246,8 @@ safety form and privacy policy).
   hardware (CPU and GPU are logged at start as `device ...` and in the projectM line).
 
 ## Done
+- 15-Nov-2026: play order moved out of VizRenderer into `PlayOrder` (filters, shuffle modes, held preset, `play()`
+  slotting, drop), 11 tests incl. the weighted shuffle; checked on the TV (Next, Back, style change).
 - 15-Nov-2026: menu phase 1 merged and on the TV (`14d9e6e`): transport bar (Previous/Next kept, OK lands on
   Favourite), settings card with the average frame rate (no on-screen readout), Live and advanced, About, the
   now-playing tag, scrolling titles. Menu open composes on the GPU (CLIENT); closed, none. Next: phase 2.

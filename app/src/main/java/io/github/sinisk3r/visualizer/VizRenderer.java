@@ -70,10 +70,7 @@ final class VizRenderer implements GLSurfaceView.Renderer {
     private byte[] wave = new byte[0];
 
     /** "All" plus every style that is on and has presets left. */
-    private List<String> categories = new ArrayList<>();
-    private String category;
-    private List<File> order = new ArrayList<>();
-    private int position = -1;
+    private final PlayOrder order;
     private boolean locked;
     private boolean ready;
 
@@ -94,58 +91,33 @@ final class VizRenderer implements GLSurfaceView.Renderer {
         this.settings = settings;
         this.textureDir = textureDir;
         this.listener = listener;
-        category = startCategory;
-        rebuild(startPreset);
-        if (startLocked && startPreset != null && currentPreset() == null && new File(startPreset).isFile()) {
-            // A held preset stays on even if a filter (heavy, deaf, a style switched off) would skip it.
-            order.add(0, new File(startPreset));
-            position = 0;
-        }
+        order = new PlayOrder(source(), startCategory);
+        order.rebuild(startPreset);
+        if (startLocked && startPreset != null && new File(startPreset).isFile()) order.hold(new File(startPreset));
         locked = startLocked && currentPreset() != null && currentPreset().getPath().equals(startPreset);
     }
 
     // --- play order ---
 
-    private List<File> visible(String cat) {
-        List<File> out = new ArrayList<>();
-        if (PresetLibrary.FAVOURITES.equals(cat)) {
-            // Favourites play even from styles that are switched off: a star is a stronger choice.
-            for (File f : library.all) {
-                if (settings.isFavourite(f.getName()) && !settings.isHidden(f.getName())) out.add(f);
+    /** The library and settings, as PlayOrder sees them. */
+    private PlayOrder.Source source() {
+        return new PlayOrder.Source() {
+            public List<String> styles() { return library.categories; }
+            public List<File> presets(String style) {
+                List<File> l = library.byCategory.get(style);
+                return l == null ? new ArrayList<>() : l;
             }
-        } else if (PresetLibrary.ALL.equals(cat)) {
-            for (String c : library.categories) {
-                if (!c.equals(PresetLibrary.ALL) && settings.isStyleOn(c)) addVisible(c, out);
+            public List<File> all() { return library.all; }
+            public boolean styleOn(String style) { return settings.isStyleOn(style); }
+            public boolean hidden(File f) { return settings.isHidden(f.getName()); }
+            public boolean favourite(File f) { return settings.isFavourite(f.getName()); }
+            public boolean skipped(String style, File f) {
+                return settings.isHidden(f.getName()) || isHeavy(f) || (settings.skipDeaf() && library.isDeaf(f))
+                        || !settings.isSubOn(style, library.subStyleOf(f));
             }
-        } else {
-            addVisible(cat, out);
-        }
-        return out;
-    }
-
-    private void addVisible(String cat, List<File> out) {
-        List<File> list = library.byCategory.get(cat);
-        if (list == null) return;
-        for (File f : list) {
-            if (!settings.isHidden(f.getName()) && !isHeavy(f) && !(settings.skipDeaf() && library.isDeaf(f))
-                    && settings.isSubOn(cat, library.subStyleOf(f))) {
-                out.add(f);
-            }
-        }
-    }
-
-    /**
-     * Play order for a style under the bar's Shuffle setting. Off: library order. This set: shuffled within the
-     * style (what the app always did). Everything: shuffled across every style that is on, whatever style is picked.
-     * TODO(menu phase 2): Everything ignores Up/Down styles for now; decide whether picking a style turns it off,
-     * and give lists (Featured, smart lists) their own sets once the Find panel has them.
-     */
-    private List<File> ordered(String cat) {
-        switch (settings.shuffle()) {
-            case Settings.SHUFFLE_OFF: return visible(cat);
-            case Settings.SHUFFLE_ALL: return library.shuffled(visible(PresetLibrary.ALL));
-            default: return library.shuffled(visible(cat));
-        }
+            public int shuffleMode() { return settings.shuffle(); }
+            public List<File> shuffle(List<File> list) { return library.shuffled(list); }
+        };
     }
 
     /** Skipped while "Skip heavy presets" is on: listed as heavy, or measured too slow on this TV. */
@@ -153,35 +125,12 @@ final class VizRenderer implements GLSurfaceView.Renderer {
         return settings.skipHeavy() && (library.heavy.contains(f.getName()) || settings.isTooSlow(f.getName()));
     }
 
-    /** Recomputes styles and order after a settings change; keeps `keepPath` first if it is still allowed. */
-    private void rebuild(String keepPath) {
-        List<String> cats = new ArrayList<>();
-        cats.add(PresetLibrary.ALL);
-        if (!visible(PresetLibrary.FAVOURITES).isEmpty()) cats.add(PresetLibrary.FAVOURITES);
-        for (String c : library.categories) {
-            if (!c.equals(PresetLibrary.ALL) && settings.isStyleOn(c) && !visible(c).isEmpty()) cats.add(c);
-        }
-        categories = cats;
-        if (!categories.contains(category)) category = PresetLibrary.ALL;
-        order = ordered(category);
-        position = -1;
-        if (keepPath != null) {
-            for (int i = 0; i < order.size(); i++) {
-                if (order.get(i).getPath().equals(keepPath)) {
-                    order.add(0, order.remove(i));
-                    position = 0;
-                    break;
-                }
-            }
-        }
-    }
-
     String category() {
-        return category;
+        return order.category();
     }
 
     File currentPreset() {
-        return position >= 0 && position < order.size() ? order.get(position) : null;
+        return order.current();
     }
 
     // --- GL ---
@@ -252,11 +201,9 @@ final class VizRenderer implements GLSurfaceView.Renderer {
 
     /** Takes the shown preset out of this session's order and moves on. */
     private void dropCurrent(boolean smooth) {
-        File bad = currentPreset();
-        if (bad != null && order.size() > 1) {
+        File bad = order.dropCurrent();
+        if (bad != null) {
             Log.w(TAG, "skipping " + bad.getName());
-            order.remove(position);
-            position--;
             step(1, smooth, false);
         }
     }
@@ -391,40 +338,29 @@ final class VizRenderer implements GLSurfaceView.Renderer {
     /** Jumps to this preset (typed channel number). If the current style's order skips it (filters, another
      *  style), it is slotted in after the current one, so Next and Back still work from there. */
     void play(File preset) {
-        int i = -1;
-        for (int k = 0; k < order.size(); k++) {
-            if (order.get(k).getPath().equals(preset.getPath())) { i = k; break; }
-        }
-        if (i < 0) {
-            i = Math.min(position + 1, order.size());
-            order.add(i, preset);
-        }
-        position = i;
+        order.play(preset);
         show(preset, true, true);
     }
 
     /** Next (+1) or previous (-1) preset in the current style; wraps around. */
     void step(int delta, boolean smooth, boolean userAction) {
-        if (order.isEmpty()) {
+        File f = order.step(delta);
+        if (f == null) {
             listener.onError("No presets left. Turn a style on or unhide presets in the OK menu.");
             return;
         }
-        position = Math.floorMod(position + delta, order.size());
-        show(order.get(position), smooth, userAction);
+        show(f, smooth, userAction);
     }
 
     void changeCategory(int delta) {
-        int i = Math.max(0, categories.indexOf(category));
-        category = categories.get(Math.floorMod(i + delta, categories.size()));
-        order = ordered(category);
-        position = -1;
+        order.changeCategory(delta);
         step(1, true, true);
     }
 
     void setLocked(boolean on) {
         locked = on;
         if (ready) Native.setLocked(on);
-        listener.onPresetShown(category, currentPreset(), locked, true);
+        listener.onPresetShown(order.category(), currentPreset(), locked, true);
     }
 
     /** After the menu changed settings: apply timing, re-filter, move on if the current preset is gone. */
@@ -436,13 +372,13 @@ final class VizRenderer implements GLSurfaceView.Renderer {
             want(surfaceFor());
         }
         File current = currentPreset();
-        rebuild(current == null ? null : current.getPath());
+        order.rebuild(current == null ? null : current.getPath());
         if (currentPreset() == null) {
             locked = false;
             if (ready) Native.setLocked(false);
             step(1, false, true);
         } else {
-            listener.onPresetShown(category, currentPreset(), locked, false);
+            listener.onPresetShown(order.category(), currentPreset(), locked, false);
         }
     }
 
@@ -458,11 +394,12 @@ final class VizRenderer implements GLSurfaceView.Renderer {
             Log.i(TAG, String.format("load %d ms  %s  %s", (System.nanoTime() - t0) / 1_000_000,
                     smooth ? "blend" : "cut", preset.getName()));
             // Compile the next preset's shaders in the background, so moving on does not freeze the picture.
-            if (order.size() > 1) Native.warm(order.get(Math.floorMod(position + 1, order.size())).getPath(), textureDir);
+            File next = order.next();
+            if (next != null) Native.warm(next.getPath(), textureDir);
         }
         if (settings.isAuto()) startResolution(preset);
         settle(SETTLE_MS + (smooth ? blend : 0));
-        listener.onPresetShown(category, preset, locked, userAction);
+        listener.onPresetShown(order.category(), preset, locked, userAction);
     }
 
     void release() {

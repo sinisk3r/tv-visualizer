@@ -310,13 +310,17 @@ final class PresetLibrary {
     /** A weighted shuffle (Efraimidis-Spirakis: sort by u^(1/w)). Every preset still appears once, but heavier
      *  ones tend to come earlier, so they play more often in the hours it takes to get through a long list. */
     List<File> shuffled(List<File> list) {
-        java.util.Random rnd = new java.util.Random();
+        return weightedShuffle(list, f -> weight(reactivityOf(f)), new java.util.Random());
+    }
+
+    static List<File> weightedShuffle(List<File> list, java.util.function.ToDoubleFunction<File> weight,
+                                      java.util.Random rnd) {
         int n = list.size();
         double[] key = new double[n];
         Integer[] idx = new Integer[n];
         for (int i = 0; i < n; i++) {
             idx[i] = i;
-            key[i] = Math.log(1.0 - rnd.nextDouble()) / weight(reactivityOf(list.get(i)));  // log(u)/w
+            key[i] = Math.log(1.0 - rnd.nextDouble()) / weight.applyAsDouble(list.get(i));  // log(u)/w
         }
         java.util.Arrays.sort(idx, (a, b) -> Double.compare(key[b], key[a]));
         List<File> out = new ArrayList<>(n);
