@@ -20,7 +20,7 @@
     <item name="s_pad_play" type="id" />
     <item name="s_result0" type="id" />
     <item name="m_prev" type="id" />
-    <item name="m_play" type="id" />
+    <item name="m_hint" type="id" />
     <item name="m_next" type="id" />
     <item name="m_seek" type="id" />
     <item name="m_ask" type="id" />
