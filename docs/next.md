@@ -265,6 +265,10 @@ and ask the user first.
   hardware (CPU and GPU are logged at start as `device ...` and in the projectM line).
 
 ## Done
+- 15-Nov-2026: music card (item M) merged and on the TV. Checked with Spotify: play/pause, next (Boom to Lonely
+  Together); mute now uses the remote's own mute path (TV mute indicator shows) and the visuals keep moving while
+  muted (capture is before the volume). 119 JVM tests, 18 emulator tests (T3 done). Left: song details and art
+  after the user grants notification access; YouTube Music; the user's "10-20 s preview" (ask what it means).
 - 15-Nov-2026: S7 sharpening tried. Mac (`cfa9f08`): CAS sharpens edges but cannot bring back detail lost to a
   smaller size (projectM draws thicker lines and coarser waves there). TV: CAS onto 1080p costs ~35 ms a frame
   (57 to 19 fps), so it is off; code kept behind `--ez sharpen true`. Comparison page:

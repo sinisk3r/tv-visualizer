@@ -326,7 +326,10 @@ final class MusicCard {
 
     private void toggleMute() {
         try {
-            audio.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_TOGGLE_MUTE, 0);
+            // The same call the remote's mute key ends in: the TV mutes (speakers, or a soundbar over HDMI-CEC)
+            // and shows its own mute indicator.
+            audio.adjustSuggestedStreamVolume(AudioManager.ADJUST_TOGGLE_MUTE,
+                    AudioManager.USE_DEFAULT_STREAM_TYPE, AudioManager.FLAG_SHOW_UI);
         } catch (SecurityException e) {  // do-not-disturb can refuse it
             toast("The TV did not allow muting now");
         }
