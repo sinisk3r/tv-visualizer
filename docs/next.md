@@ -253,6 +253,7 @@ menu), a QR code with the TV's local address, upload of .milk and texture files 
 Never log or commit the TV's address. INTERNET is already in the manifest (full pack, demo songs), but a server
 listening on the home network changes the privacy policy and Data safety form: mock up the page (QR, upload list)
 and ask the user first.
+Mockup done 15-Nov-2026: A2 screen 7 (published v10). Waiting on the user's yes.
 ```
 
 ## C. Smaller items (pick any when A or B is blocked)
