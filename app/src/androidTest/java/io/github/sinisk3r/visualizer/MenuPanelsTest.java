@@ -268,6 +268,21 @@ public class MenuPanelsTest {
     }
 
     @Test
+    public void zeroThenOkPlaysFavouriteOneAtOnce() {
+        addFavourites(3);
+        File first = onUi(a -> library(a).byName(((Settings) field(a, "settings")).favouritesInOrder().get(0)));
+        key(KeyEvent.KEYCODE_0);
+        key(KeyEvent.KEYCODE_DPAD_CENTER);
+        assertFalse("OK plays and closes the 0-list", onUi(a -> menu(a).isOpen()));
+        long until = SystemClock.uptimeMillis() + 10_000;
+        while (!first.equals(onUi(a -> field(a, "shownPreset"))) && SystemClock.uptimeMillis() < until) {
+            SystemClock.sleep(100);
+        }
+        assertEquals(first, onUi(a -> field(a, "shownPreset")));
+        assertEquals(PresetLibrary.FAVOURITES, onUi(a -> ((MainActivity) a).category()));
+    }
+
+    @Test
     public void zeroListWithNoFavouritesFocusesThePlaylists() {
         key(KeyEvent.KEYCODE_0);
         View card = onUi(a -> zeroPanel(a).view());

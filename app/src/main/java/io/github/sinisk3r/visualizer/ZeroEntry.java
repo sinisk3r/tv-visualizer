@@ -81,6 +81,15 @@ final class ZeroEntry {
         return new Target(Kind.FAVOURITE, Integer.parseInt(code.substring(1)) - 1);
     }
 
+    /**
+     * What OK does: true plays the highlighted line. That is the line the arrows moved to, or, for "0" and "00"
+     * (a whole list), its first line, highlighted when the list opened (favourite 01, or 001 Featured). False plays
+     * the typed code ("02", "003"), which may name a line that does not exist.
+     */
+    static boolean okPlaysHighlighted(Target t, boolean movedSinceDigit) {
+        return movedSinceDigit || t.kind == Kind.FAVOURITES || t.kind == Kind.PLAYLISTS;
+    }
+
     /** A favourite's number as shown: 01, 02 ... 12. */
     static String favouriteNumber(int index) {
         return String.format(java.util.Locale.ROOT, "%02d", index + 1);

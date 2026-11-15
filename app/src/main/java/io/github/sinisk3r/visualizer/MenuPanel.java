@@ -185,7 +185,7 @@ final class MenuPanel {
         });
     }
 
-    /** The bar with Find open on list `which` (the 0-list's "0" or "00" then OK). */
+    /** The bar with Find open on list `which` (Search's pad: "0" or "00" then OK). */
     void openFind(int which) {
         if (!isOpen()) open();
         showPanel(LISTS, null);

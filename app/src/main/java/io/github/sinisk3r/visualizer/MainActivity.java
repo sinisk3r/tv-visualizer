@@ -204,19 +204,18 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
 
     /** OK: the bar. */
     private void openMenu() {
-        openMenu(-1);
+        openMenu(false);
     }
 
-    /** `find` -2: the 0-list; -1: just the bar; else the bar with Find on that list. */
-    private void openMenu(int find) {
+    /** The bar, with the 0-list above it when `zero`. */
+    private void openMenu(boolean zero) {
         // The tag would repeat what the bar shows.
         overlay.animate().cancel();
         ui.removeCallbacks(hideOverlay);
         overlay.setVisibility(View.GONE);
         // Focus must stay in the menu: the full-screen GL view would otherwise take it from the edges.
         glView.setFocusable(false);
-        if (find == -2) menu.openZero();
-        else if (find >= 0) menu.openFind(find);
+        if (zero) menu.openZero();
         else if (!menu.isOpen()) menu.open();
         watchCovered(true);
         updateCovered();
@@ -386,7 +385,7 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
     private boolean handleKey(int keyCode) {
         // 0 first opens the 0-list (favourites 01..., playlists 001...); a 0 inside a number (10, 205) stays a digit.
         if (keyCode == KeyEvent.KEYCODE_0 && !typed.isActive()) {
-            openMenu(-2);
+            openMenu(true);
             return true;
         }
         if (keyCode >= KeyEvent.KEYCODE_0 && keyCode <= KeyEvent.KEYCODE_9) {
@@ -583,11 +582,6 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
     @Override
     public void dismiss() {
         if (menu.isOpen()) closeMenu();
-    }
-
-    @Override
-    public void openFind(int which) {
-        openMenu(which);
     }
 
     // --- MenuPanel.Host (UI thread) ---
