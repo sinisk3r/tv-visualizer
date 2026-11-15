@@ -170,7 +170,9 @@ Started 15-Nov-2026: JVM tests for Settings and preset names (Robolectric), Pyth
    ~~the play order~~ (`PlayOrder`, 11 tests, done 15-Nov-2026). Step 1 is done.
 2. ~~Song and drop detection~~ (`song_detector.h`, host C++ test `tools/tests/song_detector_test.cpp`, 7 cases with
    synthetic level curves, run by the Python suite; done 15-Nov-2026). Later: add curves recorded on the TV.
-3. UI tests for the new menu (B) on the emulator (AVD tv34, Espresso): focus order, keys, no row rebuilds.
+3. ~~UI tests for the new menu (B) on the emulator~~ (`MenuPanelsTest`, 13 tests: starting focus, each panel alone
+   and VISIBLE with focus inside, Back to its button, Search keys and pad, the 0-list and its 10 s close, no row
+   rebuilds, toggles keep focus; done 15-Nov-2026).
 4. TV checks stay manual but scripted: `tools/tv-bench.sh` before/after any renderer change.
 
 ```

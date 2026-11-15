@@ -39,11 +39,13 @@ public class MenuBarTest {
 
     @Before
     public void waitForVisuals() {
-        // The preset scan runs off the main thread; the menu exists once the GL view is on the stage.
+        // The preset scan runs off the main thread; the menu exists once the GL view is on the stage. Keys sent
+        // before the window has input focus are dropped (the first OK was lost on a fast emulator), so wait for both.
         long until = SystemClock.uptimeMillis() + 30_000;
         boolean[] ready = {false};
         while (!ready[0] && SystemClock.uptimeMillis() < until) {
-            rule.getScenario().onActivity(a -> ready[0] = ((ViewGroup) a.findViewById(R.id.stage)).getChildCount() > 0);
+            rule.getScenario().onActivity(a -> ready[0] = ((ViewGroup) a.findViewById(R.id.stage)).getChildCount() > 0
+                    && a.hasWindowFocus());
             if (!ready[0]) SystemClock.sleep(200);
         }
         assertTrue("visuals did not start", ready[0]);
@@ -155,12 +157,14 @@ public class MenuBarTest {
     }
 
     @Test
-    public void findOpensTheStylesAndBackClosesIt() {
+    public void findOpensAndBackClosesIt() {
         key(KeyEvent.KEYCODE_DPAD_CENTER);
         for (int i = 0; i < 3; i++) key(KeyEvent.KEYCODE_DPAD_RIGHT);
         focused(R.id.b_find);
         key(KeyEvent.KEYCODE_DPAD_CENTER);
-        shown(R.id.card_find);
+        // Find is FindPanel's card (no id; MenuPanelsTest checks it); card_find is only a style's page now.
+        onView(withId(R.id.b_find)).check(matches(isActivated()));
+        gone(R.id.card_find);
         key(KeyEvent.KEYCODE_BACK);
         gone(R.id.card_find);
         focused(R.id.b_find);
