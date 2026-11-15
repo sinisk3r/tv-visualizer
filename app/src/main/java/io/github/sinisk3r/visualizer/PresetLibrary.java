@@ -41,6 +41,7 @@ final class PresetLibrary {
     /** Every preset once, for Favourites. */
     final List<File> all = new ArrayList<>();
     private final Map<File, String> subOf = new HashMap<>();
+    private final Map<File, String> styleOf = new HashMap<>();
     private final Set<String> seen = new HashSet<>();
     final boolean hasFullPack;
     /** Presets whose custom shapes draw so many instances that they crawl on TV hardware (assets/heavy.txt,
@@ -202,7 +203,13 @@ final class PresetLibrary {
         subs.computeIfAbsent(style, k -> new TreeMap<>(String.CASE_INSENSITIVE_ORDER))
                 .computeIfAbsent(sub, k -> new ArrayList<>()).add(f);
         subOf.put(f, sub);
+        styleOf.put(f, style);
         all.add(f);
+    }
+
+    /** The style a preset belongs to (its folder), whatever list it is played from; null if unknown. */
+    String styleOf(File f) {
+        return styleOf.get(f);
     }
 
     String subStyleOf(File f) {

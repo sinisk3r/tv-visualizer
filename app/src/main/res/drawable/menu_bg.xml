@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- Charcoal glass: dark enough to read, see-through enough that the visuals still glow behind it. -->
-<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-    <solid android:color="#C7121214" />
-    <corners android:radius="22dp" />
-    <stroke android:width="1dp" android:color="#1FFFFFFF" />
-</shape>

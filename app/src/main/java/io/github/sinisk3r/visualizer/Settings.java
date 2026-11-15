@@ -23,6 +23,14 @@ final class Settings {
     static final int AUTO_SHARP = 1;
     /** Choices in the menu, in order. */
     static final int[] PICTURE_CHOICES = {AUTO, AUTO_SHARP, 480, 540, 720, 1080};
+    /** "Fixed picture size" under Live and advanced: Off (Auto, Smooth or Sharp) or one height. */
+    static final int[] FIXED_CHOICES = {AUTO, 480, 540, 720, 1080};
+
+    /** Shuffle on the bar. Off: in order (style, sub-style, name). This set: shuffled within the style or list
+     *  being played (what the app always did, so the default). Everything: shuffled across every style that is on. */
+    static final int SHUFFLE_OFF = 0;
+    static final int SHUFFLE_SET = 1;
+    static final int SHUFFLE_ALL = 2;
 
     private final SharedPreferences prefs;
     private volatile int durationSec;
@@ -30,6 +38,9 @@ final class Settings {
     private volatile int renderHeight;
     private volatile boolean skipHeavy;
     private volatile boolean skipDeaf;
+    private volatile int shuffle;
+    private volatile boolean showPlaying;
+    private volatile boolean showFps;
     /** Presets measured too slow on this TV even at the lowest picture size. File names. */
     private final SharedPreferences tooSlow;
     /** Auto picture: preset file name to the height it last ran smoothly at on this TV. */
@@ -54,6 +65,9 @@ final class Settings {
         learned = ctx.getSharedPreferences("auto_picture", Context.MODE_PRIVATE);
         skipHeavy = prefs.getBoolean("skipHeavy", true);
         skipDeaf = prefs.getBoolean("skipDeaf", true);
+        shuffle = prefs.getInt("shuffle", SHUFFLE_SET);
+        showPlaying = prefs.getBoolean("showPlaying", true);
+        showFps = prefs.getBoolean("showFps", false);
         tooSlow = ctx.getSharedPreferences("too_slow", Context.MODE_PRIVATE);
         int generation = prefs.getInt("rendererGeneration", 1);
         relearning = generation != RENDERER_GENERATION && (!learned.getAll().isEmpty() || !tooSlow.getAll().isEmpty());
@@ -90,6 +104,38 @@ final class Settings {
         prefs.edit().putBoolean("skipDeaf", on).apply();
     }
 
+    int shuffle() { return shuffle; }
+
+    /** OK on the Shuffle button: Off, This set, Everything, Off ... */
+    void cycleShuffle() {
+        shuffle = nextShuffle(shuffle);
+        prefs.edit().putInt("shuffle", shuffle).apply();
+    }
+
+    static int nextShuffle(int mode) {
+        return mode == SHUFFLE_OFF ? SHUFFLE_SET : mode == SHUFFLE_SET ? SHUFFLE_ALL : SHUFFLE_OFF;
+    }
+
+    static String shuffleLabel(int mode) {
+        return mode == SHUFFLE_OFF ? "Off" : mode == SHUFFLE_SET ? "This set" : "Everything";
+    }
+
+    /** The now-playing tag top right on every preset change, automatic ones too. Off: only on key presses. */
+    boolean showPlaying() { return showPlaying; }
+
+    void setShowPlaying(boolean on) {
+        showPlaying = on;
+        prefs.edit().putBoolean("showPlaying", on).apply();
+    }
+
+    /** A small frame rate readout top left. */
+    boolean showFps() { return showFps; }
+
+    void setShowFps(boolean on) {
+        showFps = on;
+        prefs.edit().putBoolean("showFps", on).apply();
+    }
+
     boolean isTooSlow(String presetName) { return tooSlow.contains(presetName); }
     int tooSlowCount() { return tooSlow.getAll().size(); }
 
@@ -110,8 +156,21 @@ final class Settings {
         int i = 0;
         while (i < PICTURE_CHOICES.length - 1 && PICTURE_CHOICES[i] != renderHeight) i++;
         i = Math.max(0, Math.min(PICTURE_CHOICES.length - 1, i + delta));
+        setPicture(PICTURE_CHOICES[i]);
+    }
+
+    /** Next "Fixed picture size": Off, 480p ... 1080p, Off. Off from a fixed size is Auto, Smooth. */
+    static int nextFixed(int renderHeight) {
+        int i = 0;
+        while (i < FIXED_CHOICES.length && FIXED_CHOICES[i] != renderHeight) i++;
+        if (i == FIXED_CHOICES.length) i = 0;  // Auto, Sharp counts as Off
+        return FIXED_CHOICES[(i + 1) % FIXED_CHOICES.length];
+    }
+
+    /** One of PICTURE_CHOICES: AUTO, AUTO_SHARP or a fixed height. */
+    void setPicture(int choice) {
         int before = renderHeight;
-        renderHeight = PICTURE_CHOICES[i];
+        renderHeight = choice;
         // Sizes learned for smooth do not fit sharp and back: measure again.
         if ((before == AUTO || before == AUTO_SHARP) && (renderHeight == AUTO || renderHeight == AUTO_SHARP)
                 && before != renderHeight) {
@@ -189,6 +248,11 @@ final class Settings {
         if (on) s.add(presetName); else s.remove(presetName);
         favourites = Collections.unmodifiableSet(s);
         prefs.edit().putStringSet("favourites", s).apply();
+    }
+
+    void setDuration(int sec) {
+        durationSec = sec;
+        prefs.edit().putInt("duration", durationSec).apply();
     }
 
     /** Steps through DURATIONS, clamped at both ends. */
