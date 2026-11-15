@@ -4,6 +4,29 @@ The queue for this repo, top item first (the user's order: low effort, high valu
 When an item is done, move it to "Done" with the date and commit. Add new items with a ready-to-paste prompt.
 Read `CLAUDE.md` first, especially "Testing off the TV".
 
+## P. Play Store release (the user's next priority, 15-Nov-2026)
+
+Done: upload-key signing in Gradle (`-PplayUpload`, keys in ~/.gradle/gradle.properties), relearning after
+renderer updates. Waiting on the user: create the upload key (keytool command in the session notes / below), the
+Play developer account, and the answer to "free public app, or paid later?" (decides open vs open-core).
+
+```
+Read CLAUDE.md and docs/next.md item P. Goal: a Play Store build that passes review for Android TV.
+1. Target SDK: check Play's current target API rule and raise targetSdk/compileSdk; test on the emulator (tv34)
+   and the TV.
+2. About / licences screen in the menu: projectM LGPL-2.1 notice and source link (with patches/projectm), preset
+   credits (Cream of the Crop authors), app licence MIT, "AI-generated" logo credit.
+3. Preset names: some are crude (e.g. "... i fucking HATE ..."). Clean names for display (a word filter or a
+   rename list) so the content rating stays "Everyone"; keep file names.
+4. Privacy policy page (GitHub Pages): audio is analysed on the device, never stored or sent. Data safety form.
+5. Store assets: 1920x1080 TV screenshots, banner, feature graphic, listing text (no "MilkDrop"/"Winamp").
+6. `./gradlew bundleRelease -PplayUpload`, upload to a closed test track (new personal accounts: 12+ testers for
+   14 days before production). Ask the user before anything is uploaded.
+Key creation (user runs it, chooses the password):
+  /opt/homebrew/opt/openjdk@17/bin/keytool -genkeypair -v -keystore ~/.config/android-signing/upload.jks
+    -alias upload -keyalg RSA -keysize 4096 -validity 10000
+```
+
 ## D2. Music feel: tune and next steps (after A, or when A is blocked)
 
 Steps 1-2 of D are done (see Done). TV test 15-Nov-2026, 35 min of Spotify (EDM/pop): all 7 track changes
@@ -33,11 +56,13 @@ access).
 ## A2. After the shape fix: heavy list and upstream
 
 The backport of upstream #1044 tripled shape-heavy presets on the TV (see docs/performance.md). Open:
-- **Comment on #1044** with the TV results: draft in `docs/upstream/pr1044-comment.md`. Needs the user's OK and a
-  pushed commit to link the patch. Never post without asking.
 - **Heavy list is now too strict:** `heavy.txt` (200+ instances, 1,654 presets) and Auto picture's "too slow" list
   were measured before the fix. Re-measure and raise the threshold or drop the list.
-- **Non-additive borders** are still one draw per instance (phlegmployant 12 fps). A possible upstream follow-up.
+- **Non-additive borders** are still one draw per instance: phlegmployant 12 fps, mother-of-whirl 10 fps (1,024
+  instances, border_a 0.006, the one slow preset the user noticed). Idea: emit those borders as 1-pixel quads in
+  the same triangle list (exact order, one draw call). Upstream follow-up to #1044 (mentioned in our comment).
+- Posted the TV results on #1044 (15-Nov-2026) and offered the 4.1 backport for the `v4.1.x` branch. Watch for a
+  reply.
 
 ```
 Read CLAUDE.md, docs/performance.md and docs/next.md item A2. Goal: Skip heavy presets matches the TV after the
@@ -45,7 +70,7 @@ shape fix.
 1. With tools/tv-bench.sh, measure ~15 presets from heavy.txt spread over instance counts (200-4096) at 480p.
 2. Fit fps against instance count (and borders/additive) and set a new threshold in tools/make-heavy-list.py.
    Regenerate heavy.txt. "Re-test picture sizes" clears the old learned "too slow" list on the TV; tell the user.
-3. Ask before posting docs/upstream/pr1044-comment.md on GitHub. Commit.
+3. Commit.
 ```
 
 ## B. Late-90s player theme for the app's UI
