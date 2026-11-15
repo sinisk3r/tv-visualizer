@@ -3,8 +3,10 @@ package io.github.sinisk3r.visualizer;
 import android.content.Context;
 import android.content.SharedPreferences;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -47,6 +49,9 @@ final class Settings {
     private volatile Set<String> hidden;          // preset file names
     private volatile Set<String> disabledStyles;  // style names, and "Style/Sub-style" keys
     private volatile Set<String> favourites;      // preset file names
+    /** Favourites in the order they were added, so their numbers (01, 02 ...) stay put. */
+    private volatile List<String> favouriteOrder;
+    private volatile Set<String> favouriteStyles; // style names: a whole style in Favourites
 
     /** Raise when a change makes presets render faster or slower (projectM patches, renderer changes): the first
      *  start after the update forgets what Auto picture learned on the old renderer and measures again.
@@ -80,6 +85,16 @@ final class Settings {
                 new HashSet<>(prefs.getStringSet("disabledStyles", Collections.emptySet())));
         favourites = Collections.unmodifiableSet(
                 new HashSet<>(prefs.getStringSet("favourites", Collections.emptySet())));
+        favouriteOrder = Collections.unmodifiableList(SmartLists.favouriteOrder(
+                splitLines(prefs.getString("favouriteOrder", "")), favourites));
+        favouriteStyles = Collections.unmodifiableSet(
+                new HashSet<>(prefs.getStringSet("favouriteStyles", Collections.emptySet())));
+    }
+
+    private static List<String> splitLines(String s) {
+        List<String> out = new ArrayList<>();
+        for (String l : s.split("\n")) if (!l.isEmpty()) out.add(l);
+        return out;
     }
 
     int durationSec() { return durationSec; }
@@ -109,6 +124,12 @@ final class Settings {
     /** OK on the Shuffle button: Off, This set, Everything, Off ... */
     void cycleShuffle() {
         shuffle = nextShuffle(shuffle);
+        prefs.edit().putInt("shuffle", shuffle).apply();
+    }
+
+    /** Play or Shuffle on a list in Find: Off or This set. */
+    void setShuffle(int mode) {
+        shuffle = mode;
         prefs.edit().putInt("shuffle", shuffle).apply();
     }
 
@@ -235,8 +256,26 @@ final class Settings {
     void setFavourite(String presetName, boolean on) {
         Set<String> s = new HashSet<>(favourites);
         if (on) s.add(presetName); else s.remove(presetName);
+        List<String> order = new ArrayList<>(favouriteOrder);
+        order.remove(presetName);
+        if (on) order.add(presetName);  // a new favourite gets the next number
         favourites = Collections.unmodifiableSet(s);
-        prefs.edit().putStringSet("favourites", s).apply();
+        favouriteOrder = Collections.unmodifiableList(order);
+        prefs.edit().putStringSet("favourites", s).putString("favouriteOrder", String.join("\n", order)).apply();
+    }
+
+    /** Favourite presets in the order they were added: favourite n is number 0n on the remote. */
+    List<String> favouritesInOrder() { return favouriteOrder; }
+
+    boolean isFavouriteStyle(String style) { return favouriteStyles.contains(style); }
+    Set<String> favouriteStyles() { return favouriteStyles; }
+
+    /** A whole style in Favourites (Find: the style chips). */
+    void setFavouriteStyle(String style, boolean on) {
+        Set<String> s = new HashSet<>(favouriteStyles);
+        if (on) s.add(style); else s.remove(style);
+        favouriteStyles = Collections.unmodifiableSet(s);
+        prefs.edit().putStringSet("favouriteStyles", s).apply();
     }
 
     void setDuration(int sec) {

@@ -117,6 +117,15 @@ final class VizRenderer implements GLSurfaceView.Renderer {
             }
             public int shuffleMode() { return settings.shuffle(); }
             public List<File> shuffle(List<File> list) { return library.shuffled(list); }
+            public List<File> favourites() {
+                List<File> out = new ArrayList<>();
+                for (String n : settings.favouritesInOrder()) {
+                    File f = library.byName(n);
+                    if (f != null) out.add(f);
+                }
+                return out;
+            }
+            public boolean favouriteStyle(String style) { return settings.isFavouriteStyle(style); }
         };
     }
 
@@ -340,6 +349,18 @@ final class VizRenderer implements GLSurfaceView.Renderer {
     void play(File preset) {
         order.play(preset);
         show(preset, true, true);
+    }
+
+    /** Plays a list (Find, the 0-list) as the current set, from `first` or its start. */
+    void playList(String name, List<File> presets, File first) {
+        order.playList(name, presets, first);
+        step(1, true, true);
+    }
+
+    /** Plays a style or Favourites from Find, from `first` or its start. */
+    void playCategory(String category, File first) {
+        order.playCategory(category, first);
+        step(1, true, true);
     }
 
     /** Next (+1) or previous (-1) preset in the current style; wraps around. */

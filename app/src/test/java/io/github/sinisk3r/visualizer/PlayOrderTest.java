@@ -25,6 +25,7 @@ public class PlayOrderTest {
         final Set<String> off = new HashSet<>(), hidden = new HashSet<>(), favs = new HashSet<>(),
                 skipped = new HashSet<>();
         int shuffle = Settings.SHUFFLE_SET;
+        final Set<String> favStyles = new HashSet<>();
 
         Fake() {
             styles.put(PresetLibrary.ALL, new ArrayList<>());
@@ -57,6 +58,7 @@ public class PlayOrderTest {
             Collections.reverse(out);
             return out;
         }
+        public boolean favouriteStyle(String style) { return favStyles.contains(style); }
     }
 
     private Fake lib;
@@ -203,5 +205,88 @@ public class PlayOrderTest {
         }
         // weight 2 among 2+1+1+1: first 40% of the time (vs 25% unweighted)
         assertTrue("strong first " + strongFirst, strongFirst > 700 && strongFirst < 900);
+    }
+
+    private static List<File> list(String... paths) {
+        List<File> out = new ArrayList<>();
+        for (String p : paths) out.add(new File(p + ".milk"));
+        return out;
+    }
+
+    @Test
+    public void favouritesHoldSinglePresetsThenWholeStyles() {
+        lib.favs.add("b2.milk");
+        lib.favStyles.add("Dancer");
+        lib.skipped.add("a2.milk");  // a favourite style's filters still apply
+        lib.shuffle = Settings.SHUFFLE_OFF;
+        PlayOrder o = new PlayOrder(lib, PresetLibrary.FAVOURITES);
+        o.rebuild(null);
+        assertEquals(Arrays.asList("b2.milk", "a1.milk", "a3.milk"), names(o));
+    }
+
+    @Test
+    public void aListPlaysInOrderFromThePickedPreset() {
+        lib.shuffle = Settings.SHUFFLE_OFF;
+        PlayOrder o = new PlayOrder(lib, "Dancer");
+        o.rebuild(null);
+        o.playList("Featured", list("Fractal/b3", "Dancer/a1", "Fractal/b1"), new File("Dancer/a1.milk"));
+        assertEquals("Featured", o.category());
+        assertTrue(o.isList());
+        assertEquals("a1.milk", name(o.step(1)));
+        assertEquals("b1.milk", name(o.step(1)));
+        assertEquals("wraps within the list", "b3.milk", name(o.step(1)));
+        assertEquals(3, o.size());
+    }
+
+    @Test
+    public void thisSetShufflesTheListAndPutsThePickFirst() {
+        PlayOrder o = new PlayOrder(lib, "Dancer");
+        o.rebuild(null);
+        o.playList("Recently played", list("Fractal/b3", "Dancer/a1", "Fractal/b1"), new File("Fractal/b3.milk"));
+        // the fake shuffle reverses: b1, a1, b3; the pick moves to the front
+        assertEquals(Arrays.asList("b3.milk", "b1.milk", "a1.milk"), names(o));
+    }
+
+    @Test
+    public void everythingShufflesEveryStyleAndTheListOnlyPicksTheFirst() {
+        lib.shuffle = Settings.SHUFFLE_ALL;
+        PlayOrder o = new PlayOrder(lib, "Dancer");
+        o.rebuild(null);
+        o.playList("Featured", list("Dancer/a2"), null);
+        assertEquals(6, o.size());
+        assertEquals("a2.milk", name(o.step(1)));
+    }
+
+    @Test
+    public void aListSurvivesASettingsChangeAndDropsHiddenPresets() {
+        lib.shuffle = Settings.SHUFFLE_OFF;
+        PlayOrder o = new PlayOrder(lib, "Dancer");
+        o.rebuild(null);
+        o.playList("Most watched", list("Fractal/b3", "Dancer/a1", "Fractal/b1"), null);
+        lib.hidden.add("a1.milk");
+        o.rebuild(null);
+        assertEquals("Most watched", o.category());
+        assertEquals(Arrays.asList("b3.milk", "b1.milk"), names(o));
+    }
+
+    @Test
+    public void upDownFromAListGoesBackToTheStyles() {
+        PlayOrder o = new PlayOrder(lib, "Dancer");
+        o.rebuild(null);
+        o.playList("Featured", list("Fractal/b3"), null);
+        o.changeCategory(1);
+        assertFalse(o.isList());
+        assertEquals("Dancer", o.category());
+    }
+
+    @Test
+    public void playCategoryStartsAStyleAtThePickedPreset() {
+        lib.shuffle = Settings.SHUFFLE_OFF;
+        PlayOrder o = new PlayOrder(lib, PresetLibrary.ALL);
+        o.rebuild(null);
+        o.playCategory("Fractal", new File("Fractal/b2.milk"));
+        assertEquals("Fractal", o.category());
+        assertEquals("b2.milk", name(o.step(1)));
+        assertEquals("b3.milk", name(o.step(1)));
     }
 }

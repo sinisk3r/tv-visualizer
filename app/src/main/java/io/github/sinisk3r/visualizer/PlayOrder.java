@@ -34,6 +34,18 @@ final class PlayOrder {
         int shuffleMode();
 
         List<File> shuffle(List<File> list);
+
+        /** Favourite presets in the order they were added (01, 02 ...). Default: library order. */
+        default List<File> favourites() {
+            List<File> out = new ArrayList<>();
+            for (File f : all()) if (favourite(f)) out.add(f);
+            return out;
+        }
+
+        /** A whole style in Favourites. */
+        default boolean favouriteStyle(String style) {
+            return false;
+        }
     }
 
     private final Source source;
@@ -41,6 +53,9 @@ final class PlayOrder {
     private String category;
     private List<File> order = new ArrayList<>();
     private int position = -1;
+    /** The presets of the list being played (Featured, Most watched ... from Find or the 0-list), or null when a
+     *  style plays. The list's name is the category. */
+    private List<File> list;
 
     PlayOrder(Source source, String startCategory) {
         this.source = source;
@@ -72,9 +87,17 @@ final class PlayOrder {
     List<File> visible(String cat) {
         List<File> out = new ArrayList<>();
         if (PresetLibrary.FAVOURITES.equals(cat)) {
-            // Favourites play even from styles that are switched off: a star is a stronger choice.
-            for (File f : source.all()) {
-                if (source.favourite(f) && !source.hidden(f)) out.add(f);
+            // Favourites play even from styles that are switched off: a star is a stronger choice. Single presets
+            // first, in the order they were added, then the favourite styles (their filters still apply).
+            java.util.Set<String> seen = new java.util.HashSet<>();
+            for (File f : source.favourites()) {
+                if (!source.hidden(f) && seen.add(f.getPath())) out.add(f);
+            }
+            for (String c : source.styles()) {
+                if (c.equals(PresetLibrary.ALL) || !source.favouriteStyle(c)) continue;
+                List<File> style = new ArrayList<>();
+                addVisible(c, style);
+                for (File f : style) if (seen.add(f.getPath())) out.add(f);
             }
         } else if (PresetLibrary.ALL.equals(cat)) {
             for (String c : source.styles()) {
@@ -98,11 +121,70 @@ final class PlayOrder {
      * TODO(menu phase 2): changing style with Everything asks "Shuffle this style only?" (docs/next.md B).
      */
     private List<File> ordered(String cat) {
+        if (list != null) return orderedList();
         switch (source.shuffleMode()) {
             case Settings.SHUFFLE_OFF: return visible(cat);
             case Settings.SHUFFLE_ALL: return source.shuffle(visible(PresetLibrary.ALL));
             default: return source.shuffle(visible(cat));
         }
+    }
+
+    /** A list in the same shuffle modes as a style: Off as given, This set shuffled, Everything shuffled across
+     *  every style (the list then only picks the first preset). Hidden presets are left out. */
+    private List<File> orderedList() {
+        List<File> v = new ArrayList<>();
+        for (File f : list) if (!source.hidden(f)) v.add(f);
+        switch (source.shuffleMode()) {
+            case Settings.SHUFFLE_OFF: return v;
+            case Settings.SHUFFLE_ALL: return source.shuffle(visible(PresetLibrary.ALL));
+            default: return source.shuffle(v);
+        }
+    }
+
+    /** True while a list (not a style) plays. */
+    boolean isList() {
+        return list != null;
+    }
+
+    /**
+     * Plays a list as the current set (Find's Play and Shuffle, the 0-list), under the Shuffle mode. `first` (or,
+     * when null, the list's first preset in play order) plays next: in order it is where the order starts, shuffled
+     * it is moved to the front. Next and Back then move through the list.
+     */
+    void playList(String name, List<File> presets, File first) {
+        category = name;
+        list = new ArrayList<>(presets);
+        order = orderedList();
+        if (first == null && source.shuffleMode() == Settings.SHUFFLE_ALL) {
+            for (File f : list) {
+                if (!source.hidden(f)) { first = f; break; }  // Everything: the list still picks what plays first
+            }
+        }
+        startAt(first);
+    }
+
+    /** Plays a style (or Favourites) from Find, starting at `first` when given. */
+    void playCategory(String cat, File first) {
+        list = null;
+        category = cat;
+        order = ordered(cat);
+        startAt(first);
+    }
+
+    /** Position before `first` (so the next step plays it), or before the start. */
+    private void startAt(File first) {
+        position = -1;
+        if (first == null) return;
+        for (int i = 0; i < order.size(); i++) {
+            if (!order.get(i).getPath().equals(first.getPath())) continue;
+            if (source.shuffleMode() == Settings.SHUFFLE_OFF) {
+                position = i - 1;
+            } else {
+                order.add(0, order.remove(i));
+            }
+            return;
+        }
+        order.add(0, first);  // not in the order (hidden, or Everything left it out): plays once first
     }
 
     /** Recomputes styles and order after a settings change; keeps `keepPath` first if it is still allowed. */
@@ -114,7 +196,7 @@ final class PlayOrder {
             if (!c.equals(PresetLibrary.ALL) && source.styleOn(c) && !visible(c).isEmpty()) cats.add(c);
         }
         categories = cats;
-        if (!categories.contains(category)) category = PresetLibrary.ALL;
+        if (list == null && !categories.contains(category)) category = PresetLibrary.ALL;
         order = ordered(category);
         position = -1;
         if (keepPath != null) {
@@ -159,6 +241,11 @@ final class PlayOrder {
 
     /** Next or previous style; the order starts over (position before the first preset). */
     void changeCategory(int delta) {
+        // From a list, Up/Down go to the first style ("All") and on from there.
+        if (list != null) {
+            list = null;
+            category = PresetLibrary.ALL;
+        }
         int i = Math.max(0, categories.indexOf(category));
         category = categories.get(Math.floorMod(i + delta, categories.size()));
         order = ordered(category);
