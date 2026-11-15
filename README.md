@@ -8,7 +8,7 @@ recorded or sent.
 ## Remote
 | Key | Does |
 |---|---|
-| Left / Right | Previous / next preset |
+| Left / Right | Previous / next preset (1.5 s blend) |
 | Up / Down | Change style: All, ★ Favourites, Dancer, Drawing, Fractal, ... |
 | OK / Menu | Open the menu (Back closes) |
 | Info | Show the current preset name |
@@ -16,11 +16,19 @@ recorded or sent.
 
 Menu (left side; Up/Down moves, OK toggles or opens, Left/Right changes a value, Back goes back):
 - Hold this preset (forever), ★ Favourite, Hide this preset
-- Time per preset (15 s to 5 min), Picture (Auto or a fixed 480p/540p/720p/1080p), Switch on big beats
+- Time per preset (15 s to 5 min), Picture (Auto or a fixed 480p/540p/720p/1080p), Switch on big beats,
+  Skip heavy presets
 - Styles: each style opens a page with "Play this style" and one switch per sub-style
 - Presets: Get all 9,795 presets, Favourites, Unhide all, Re-test picture sizes
 
-Presets switch every 30 s, or on a big beat (hard cut). Presets that fail to compile on the GPU are skipped.
+Presets switch every 30 s (3 s blend), or on a big beat (hard cut). Presets that fail to compile on the GPU are
+skipped. While a preset plays, the next one's shaders compile on a background thread, so the switch does not
+freeze the picture.
+
+Skip heavy presets (on by default) leaves out presets that crawl on TV hardware whatever the picture size:
+- 1,654 listed in `app/src/main/assets/heavy.txt` (`tools/make-heavy-list.py`): custom shapes with 200+
+  instances per frame, each worked out on the CPU and drawn on its own.
+- Any preset Auto picture measures under 20 fps at 480p on this TV. "Re-test picture sizes" forgets these too.
 
 ## Presets
 - 400 bundled: 40 per style, picked with a fixed seed from
@@ -39,6 +47,7 @@ Presets switch every 30 s, or on a big beat (hard cut). Presets that fail to com
 git submodule update --init --recursive   # projectM v4.1.8
 tools/fetch-packs.sh                       # preset + texture packs (156 MB, not committed)
 tools/make-bundle.py 40                    # 40 per style into app/src/main/assets (keeps sub-style folders)
+tools/make-heavy-list.py                   # app/src/main/assets/heavy.txt from the full pack
 ./gradlew assembleRelease                  # needs NDK 27.2.12479018, CMake 3.22.1, JDK 17
 adb install -r app/build/outputs/apk/release/app-release.apk
 ```
@@ -51,13 +60,15 @@ own height on this TV: a 3 s window under 24 fps steps it down (1080p, 720p, 540
 Frames during the 3 s blend between presets and 1.5 s after a load or resize are not counted (two presets render
 at once during a blend; shader compiles stall the first frames). A lowered preset that holds 55+ fps for 10 s
 tries one step up, once per session. A preset never seen before starts at the height most presets settled at.
+Nothing is measured while the menu or the preset name is on screen (see `docs/performance.md`).
 
 ## Performance (TCL G08, Mali-G52, 32-bit, 13-Nov-2026)
 Fixed 540p with a 32x24 mesh: 30-60 fps, typically ~45. At 720p / 48x32: 13-42 fps. At 1080p many presets
 run 12-22 fps (Auto drops them). RAM ~33 MB PSS. Logs: `adb logcat -s Visualizer` (fps every 10 s, auto steps).
+What makes a preset slow, and measurements: `docs/performance.md`.
 
 ## Licences
-- This app's code and art (`app/`, `tools/`, `art/`): MIT, see `LICENSE`. The logo and menu art are
+- This app's code and art (`app/`, `tools/`, `art/`): MIT, see `LICENSE`. The logo is
   AI-generated (prompts in `art/prompts.md`); the colour logo is the grey one recoloured by `tools/colour-logo.py`.
 - projectM: LGPL-2.1, shipped as its own shared library (`libprojectM-4.so`) so it can be replaced.
 - Presets and textures: from projectM's preset and texture repos. MilkDrop presets were released freely without a

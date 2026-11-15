@@ -43,6 +43,9 @@ final class PresetLibrary {
     private final Map<File, String> subOf = new HashMap<>();
     private final Set<String> seen = new HashSet<>();
     final boolean hasFullPack;
+    /** Presets whose custom shapes draw so many instances that they crawl on TV hardware (assets/heavy.txt,
+     *  from tools/make-heavy-list.py). File names. */
+    final Set<String> heavy = new HashSet<>();
 
     PresetLibrary(Context ctx) throws IOException {
         File root = new File(ctx.getFilesDir(), "bundle");
@@ -56,6 +59,19 @@ final class PresetLibrary {
         categories.add(ALL);
         categories.addAll(byCategory.keySet());
         byCategory.put(ALL, all);
+        loadHeavy(ctx.getAssets());
+    }
+
+    private void loadHeavy(AssetManager assets) {
+        try (java.io.BufferedReader in = new java.io.BufferedReader(
+                new java.io.InputStreamReader(assets.open("heavy.txt"), java.nio.charset.StandardCharsets.UTF_8))) {
+            for (String line; (line = in.readLine()) != null; ) {
+                int tab = line.indexOf('\t');
+                if (tab > 0) heavy.add(line.substring(tab + 1));
+            }
+        } catch (IOException e) {
+            android.util.Log.w("Visualizer", "no heavy list", e);
+        }
     }
 
     /** User textures, when the user added a folder of them; else the bundled ones. */

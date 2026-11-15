@@ -54,7 +54,7 @@
     </LinearLayout>
 
     <!-- The OK menu, on the left. Neutral charcoal, see-through, so the visuals stay the main thing.
-         Rows are built by MenuPanel; menu_art is a faint picture that breathes with the music. -->
+         Rows are built by MenuPanel. No picture behind them: a plain panel is cheapest to draw over the visuals. -->
     <FrameLayout
         android:id="@+id/menu"
         android:layout_width="400dp"
@@ -66,15 +66,6 @@
         android:background="@drawable/menu_bg"
         android:clipToOutline="true"
         android:visibility="gone">
-
-        <ImageView
-            android:id="@+id/menu_art"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:alpha="0.18"
-            android:importantForAccessibility="no"
-            android:scaleType="centerCrop"
-            android:visibility="gone" />
 
         <LinearLayout
             android:layout_width="match_parent"

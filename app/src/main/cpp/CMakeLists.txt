@@ -13,4 +13,4 @@ set(BUILD_SHARED_LIBS ON CACHE BOOL "" FORCE)
 add_subdirectory(${PROJECTM_DIR} projectm)
 
 add_library(visualizer SHARED native.cpp)
-target_link_libraries(visualizer PRIVATE libprojectM::projectM GLESv3 log android)
+target_link_libraries(visualizer PRIVATE libprojectM::projectM GLESv3 EGL log android)

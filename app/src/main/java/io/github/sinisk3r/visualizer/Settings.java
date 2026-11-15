@@ -24,6 +24,9 @@ final class Settings {
     private volatile int durationSec;
     private volatile boolean beatCuts;
     private volatile int renderHeight;
+    private volatile boolean skipHeavy;
+    /** Presets measured too slow on this TV even at the lowest picture size. File names. */
+    private final SharedPreferences tooSlow;
     /** Auto picture: preset file name to the height it last ran smoothly at on this TV. */
     private final SharedPreferences learned;
     private volatile Set<String> hidden;          // preset file names
@@ -36,6 +39,8 @@ final class Settings {
         beatCuts = prefs.getBoolean("beatCuts", true);
         renderHeight = prefs.getInt("renderHeight", AUTO);
         learned = ctx.getSharedPreferences("auto_picture", Context.MODE_PRIVATE);
+        skipHeavy = prefs.getBoolean("skipHeavy", true);
+        tooSlow = ctx.getSharedPreferences("too_slow", Context.MODE_PRIVATE);
         hidden = Collections.unmodifiableSet(new HashSet<>(prefs.getStringSet("hidden", Collections.emptySet())));
         disabledStyles = Collections.unmodifiableSet(
                 new HashSet<>(prefs.getStringSet("disabledStyles", Collections.emptySet())));
@@ -48,6 +53,19 @@ final class Settings {
     /** The chosen picture: AUTO or a fixed height. */
     int renderHeight() { return renderHeight; }
     boolean isAuto() { return renderHeight == AUTO; }
+    boolean skipHeavy() { return skipHeavy; }
+
+    void setSkipHeavy(boolean on) {
+        skipHeavy = on;
+        prefs.edit().putBoolean("skipHeavy", on).apply();
+    }
+
+    boolean isTooSlow(String presetName) { return tooSlow.contains(presetName); }
+    int tooSlowCount() { return tooSlow.getAll().size(); }
+
+    void markTooSlow(String presetName, float fps) {
+        tooSlow.edit().putFloat(presetName, fps).apply();
+    }
 
     static int widthFor(int height) {
         return (height * 16 / 9 + 1) & ~1;  // even width: 480p is 854x480
@@ -86,12 +104,23 @@ final class Settings {
         learned.edit().putInt(presetName, height).apply();
     }
 
+    /** Logs every learned height, so slow presets can be studied off the TV (release builds hide prefs). */
+    void logLearned() {
+        for (java.util.Map.Entry<String, ?> e : learned.getAll().entrySet()) {
+            android.util.Log.i("Visualizer", "learned " + e.getValue() + " " + e.getKey());
+        }
+        for (java.util.Map.Entry<String, ?> e : tooSlow.getAll().entrySet()) {
+            android.util.Log.i("Visualizer", "too slow " + e.getValue() + " fps " + e.getKey());
+        }
+    }
+
     int learnedCount() {
         return learned.getAll().size();
     }
 
     void forgetLearned() {
         learned.edit().clear().apply();
+        tooSlow.edit().clear().apply();
     }
 
     static int lower(int h) {

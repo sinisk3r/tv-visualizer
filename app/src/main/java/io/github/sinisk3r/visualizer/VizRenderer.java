@@ -24,12 +24,14 @@ final class VizRenderer implements GLSurfaceView.Renderer {
     // Auto picture. Frames are only counted once a preset is on its own: never during the blend from the
     // previous preset (two presets render at once) or right after a load or resize (shader compile, new
     // buffers), since those dips would wrongly mark a smooth preset as slow.
-    private static final long BLEND_MS = 3000;       // soft-cut length set in native.cpp
+    private static final long BLEND_MS = 3000;       // blend length for timed and beat changes
+    private static final long KEY_BLEND_MS = 1500;   // shorter for remote presses, so the remote feels quick
     private static final long SETTLE_MS = 1500;      // after a load or resize
     private static final long WINDOW_MS = 3000;      // one measurement
     private static final float SLOW_FPS = 24f;       // below this looks choppy: step down
     private static final float FAST_FPS = 55f;       // at or above this the GPU has room
     private static final long PROBE_AFTER_MS = 10_000; // smooth this long at a lowered size: try one step up
+    private static final float TOO_SLOW_FPS = 20f;   // below this at the lowest size: the preset is too heavy here
 
     interface Listener {
         /** Called on the GL thread whenever the shown preset, style or hold changes. */
@@ -43,6 +45,12 @@ final class VizRenderer implements GLSurfaceView.Renderer {
     private final Settings settings;
     private final String textureDir;
     private final Listener listener;
+
+    /**
+     * True while the menu or the preset name is on screen. Anything over the visuals makes this TV compose the
+     * whole 4K picture on the GPU, which costs the visuals frames, so Auto picture does not measure then.
+     */
+    volatile boolean covered;
 
     /** Set by the activity while it holds the audio capture; read every frame. */
     volatile Visualizer audio;
@@ -58,9 +66,9 @@ final class VizRenderer implements GLSurfaceView.Renderer {
 
     private long fpsStart;
     private int fpsFrames;
-
-    /** Loudness 0..1 of the last audio frame, for the menu art to breathe with. */
-    volatile float level;
+    private long lastFrameNs;
+    private long worstGapNs;  // longest frame-to-frame gap in this log window
+    private int slowFrames;   // frames over 50 ms in this log window
 
     private int surfaceHeight;
     private long measureFrom;   // uptime ms; frames before this are not counted
@@ -104,8 +112,15 @@ final class VizRenderer implements GLSurfaceView.Renderer {
         List<File> list = library.byCategory.get(cat);
         if (list == null) return;
         for (File f : list) {
-            if (!settings.isHidden(f.getName()) && settings.isSubOn(cat, library.subStyleOf(f))) out.add(f);
+            if (!settings.isHidden(f.getName()) && !isHeavy(f) && settings.isSubOn(cat, library.subStyleOf(f))) {
+                out.add(f);
+            }
         }
+    }
+
+    /** Skipped while "Skip heavy presets" is on: listed as heavy, or measured too slow on this TV. */
+    private boolean isHeavy(File f) {
+        return settings.skipHeavy() && (library.heavy.contains(f.getName()) || settings.isTooSlow(f.getName()));
     }
 
     /** Recomputes styles and order after a settings change; keeps `keepPath` first if it is still allowed. */
@@ -175,10 +190,7 @@ final class VizRenderer implements GLSurfaceView.Renderer {
             try {
                 int size = v.getCaptureSize();
                 if (wave.length != size) wave = new byte[size];
-                if (v.getWaveForm(wave) == Visualizer.SUCCESS) {
-                    Native.addPcm(wave, size);
-                    level = loudness(wave, size);
-                }
+                if (v.getWaveForm(wave) == Visualizer.SUCCESS) Native.addPcm(wave, size);
             } catch (IllegalStateException e) {
                 // The activity released it between frames.
             }
@@ -186,13 +198,7 @@ final class VizRenderer implements GLSurfaceView.Renderer {
         int ev = Native.render();
         if ((ev & Native.EV_FAILED) != 0) {
             // Drop presets that do not compile on this GPU, so they never come back this session.
-            File bad = currentPreset();
-            if (bad != null && order.size() > 1) {
-                Log.w(TAG, "skipping " + bad.getName());
-                order.remove(position);
-                position--;
-                step(1, false, false);
-            }
+            dropCurrent(false);
         } else if ((ev & Native.EV_SWITCH) != 0 && !locked) {
             step(1, (ev & Native.EV_HARD_CUT) == 0, false);
         }
@@ -200,13 +206,15 @@ final class VizRenderer implements GLSurfaceView.Renderer {
         autoPicture();
     }
 
-    private static float loudness(byte[] w, int n) {
-        long sum = 0;
-        for (int i = 0; i < n; i += 4) {
-            int d = (w[i] & 0xFF) - 128;
-            sum += (long) d * d;
+    /** Takes the shown preset out of this session's order and moves on. */
+    private void dropCurrent(boolean smooth) {
+        File bad = currentPreset();
+        if (bad != null && order.size() > 1) {
+            Log.w(TAG, "skipping " + bad.getName());
+            order.remove(position);
+            position--;
+            step(1, smooth, false);
         }
-        return Math.min(1f, (float) Math.sqrt(sum / (double) Math.max(1, n / 4)) / 64f);
     }
 
     private void settle(long ms) {
@@ -220,6 +228,10 @@ final class VizRenderer implements GLSurfaceView.Renderer {
         File p = currentPreset();
         if (p == null || surfaceHeight == 0) return;
         long now = SystemClock.uptimeMillis();
+        if (covered) {
+            settle(SETTLE_MS);
+            return;
+        }
         if (now < measureFrom) return;
         if (windowStart == 0) {
             windowStart = now;
@@ -232,6 +244,14 @@ final class VizRenderer implements GLSurfaceView.Renderer {
         windowStart = now;
         windowFrames = 0;
         String name = p.getName();
+        if (fps < TOO_SLOW_FPS && surfaceHeight <= Settings.HEIGHTS[0]) {
+            // Already at the smallest picture: the cost is not in pixels (usually hundreds of custom shapes
+            // worked out on the CPU), so a smaller picture cannot help. Remember it for "Skip heavy presets".
+            Log.i(TAG, String.format("auto: %.0f fps at %dp, too slow: %s", fps, surfaceHeight, name));
+            settings.markTooSlow(name, fps);
+            if (settings.skipHeavy() && !locked) dropCurrent(true);
+            return;
+        }
         if (fps < SLOW_FPS && surfaceHeight > Settings.HEIGHTS[0]) {
             int down = Settings.lower(surfaceHeight);
             Log.i(TAG, String.format("auto: %.0f fps at %dp, down to %dp: %s", fps, surfaceHeight, down, name));
@@ -257,15 +277,25 @@ final class VizRenderer implements GLSurfaceView.Renderer {
     }
 
     private void countFps() {
+        long ns = System.nanoTime();
+        if (lastFrameNs != 0) {
+            long gap = ns - lastFrameNs;
+            if (gap > worstGapNs) worstGapNs = gap;
+            if (gap > 50_000_000L) slowFrames++;
+        }
+        lastFrameNs = ns;
         long now = SystemClock.uptimeMillis();
         if (fpsStart == 0) fpsStart = now;
         fpsFrames++;
         if (now - fpsStart >= 10_000) {
             File p = currentPreset();
-            Log.i(TAG, String.format("fps %.1f  %s", fpsFrames * 1000f / (now - fpsStart),
+            Log.i(TAG, String.format("fps %.1f  worst %d ms  slow %d  %dp  %s",
+                    fpsFrames * 1000f / (now - fpsStart), worstGapNs / 1_000_000, slowFrames, surfaceHeight,
                     p == null ? "-" : p.getName()));
             fpsStart = now;
             fpsFrames = 0;
+            worstGapNs = 0;
+            slowFrames = 0;
         }
     }
 
@@ -286,7 +316,7 @@ final class VizRenderer implements GLSurfaceView.Renderer {
         category = categories.get(Math.floorMod(i + delta, categories.size()));
         order = PresetLibrary.shuffled(visible(category));
         position = -1;
-        step(1, false, true);
+        step(1, true, true);
     }
 
     void setLocked(boolean on) {
@@ -314,9 +344,17 @@ final class VizRenderer implements GLSurfaceView.Renderer {
     }
 
     private void show(File preset, boolean smooth, boolean userAction) {
-        if (ready) Native.loadPreset(preset.getPath(), smooth);
+        long blend = userAction ? KEY_BLEND_MS : BLEND_MS;
+        if (ready) {
+            long t0 = System.nanoTime();
+            Native.loadPreset(preset.getPath(), smooth, blend / 1000f);
+            Log.i(TAG, String.format("load %d ms  %s  %s", (System.nanoTime() - t0) / 1_000_000,
+                    smooth ? "blend" : "cut", preset.getName()));
+            // Compile the next preset's shaders in the background, so moving on does not freeze the picture.
+            if (order.size() > 1) Native.warm(order.get(Math.floorMod(position + 1, order.size())).getPath(), textureDir);
+        }
         if (settings.isAuto()) want(settings.learnedHeight(preset.getName()));
-        settle(SETTLE_MS + (smooth ? BLEND_MS : 0));
+        settle(SETTLE_MS + (smooth ? blend : 0));
         listener.onPresetShown(category, preset, locked, userAction);
     }
 

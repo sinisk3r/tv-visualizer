@@ -11,7 +11,9 @@ features, build and licences; this file covers how to work on it. Keep it under 
     rewrites values.
   - `PresetLibrary` (scan, styles, sub-styles), `PackDownloader` (full pack), `Settings` (prefs), `Native` (JNI).
 - `app/src/main/cpp/native.cpp`: one global projectM instance; callbacks return as bit flags from `render()`.
-- `tools/`: `fetch-packs.sh`, `make-bundle.py` (bundled presets), `colour-logo.py` (needs Pillow + numpy).
+- `tools/`: `fetch-packs.sh`, `make-bundle.py` (bundled presets), `make-heavy-list.py` (assets/heavy.txt),
+  `colour-logo.py` (needs Pillow + numpy).
+- `docs/performance.md`: what makes presets slow on TVs, measurements, the planned projectM shape fix.
 - `third_party/projectm`: submodule at v4.1.8. Preset/texture packs in `third_party/presets-*` are gitignored.
 
 ## Build and test
@@ -22,7 +24,9 @@ features, build and licences; this file covers how to work on it. Keep it under 
 - Drive the remote one key per `adb shell input keyevent <code>` call with ~0.5 s between; batched key lists
   have toggled the wrong rows. Screenshot: `adb exec-out screencap -p > shot.png`.
 - `adb shell am start -W` can hang when the TV's screensaver takes over; use plain `am start`.
-- Release builds are not debuggable: `run-as` cannot read prefs. Log what you need instead.
+- Release builds are not debuggable: `run-as` cannot read prefs. Log what you need instead (learned heights
+  are logged at start: `adb logcat -s Visualizer | grep learned`).
+- After editing `CMakeLists.txt`, `rm -rf app/.cxx`: a reconfigure leaves projectM's `version.h` empty.
 
 ## Rules learned the hard way
 - Never move or scale views over the GLSurfaceView (slide-ins, focus zoom): composition clips them. Fade only.
@@ -34,9 +38,11 @@ features, build and licences; this file covers how to work on it. Keep it under 
 - Bump `versionCode` when the bundled assets change, or installed apps keep the old unpacked copy.
 - Auto picture must not count frames during a preset blend (3 s) or right after a load/resize (1.5 s).
 - Preset scanning is slow on TV storage (~1-2 s for 10k files): keep it off the main thread.
+- Hide views (GONE) when not shown: any visible view, even at alpha 0, makes the TV GPU compose the full
+  4K frame each vsync (`dumpsys SurfaceFlinger`: CLIENT, not DEVICE).
 
 ## Art
-- Logo and menu art are AI-generated; prompts in `art/prompts.md`. Credit them only as "AI-generated".
+- The logo is AI-generated; prompts in `art/prompts.md`. Credit them only as "AI-generated".
 - Make variants locally (`tools/colour-logo.py`, `sips`) rather than generating new images.
 - The menu stays neutral grey; colour belongs to the visuals and the icon.
 

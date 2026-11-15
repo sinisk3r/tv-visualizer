@@ -1,10 +1,10 @@
 # Visualizer art prompts
 
-AI-generated, 13-Nov-2026. Sources are kept here; the app uses resized copies in `app/src/main/res/drawable-nodpi/`.
+AI-generated, 13-Nov-2026. Sources are kept here.
 
 ## menu-bg.png
 
-Portrait 1024x1536. Used, resized, as the faint menu background (`menu_art.jpg`).
+Portrait 1024x1536. Was the faint menu background; no longer used in the app (removed 15-Nov-2026), kept as the source of the logo.
 
 Create an image: a tall PORTRAIT background (1024x1536) for the menu screen of an Android TV music visualizer app. Toon-shaded line art of a DJ behind a pair of turntables, the whole figure built from flowing equalizer-like lines and thin spectrum bars, like a classic Winamp / MilkDrop music visualizer: the lines suggest a person in motion, wearing headphones, one hand raised high. Neutral palette only: soft greys, white and charcoal, near-monochrome, with at most the faintest cool-grey glow. No purple, no pink, no other colours. Very subtle and low contrast. Mostly a dark charcoal background (#141416). Place the DJ and turntables in the lower-middle part of the image; keep the top 40% calm, dark and nearly empty, because white menu text will sit over it. No text, no letters, no logos, no watermark, no frame.
 

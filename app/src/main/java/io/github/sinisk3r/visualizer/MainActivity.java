@@ -41,7 +41,13 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
     private volatile File shownPreset;
     private volatile boolean shownLocked;
     private final Handler ui = new Handler(Looper.getMainLooper());
-    private final Runnable hideOverlay = () -> overlay.animate().alpha(0f).setDuration(600).start();
+    // GONE once faded, not just transparent: any visible view keeps the app window as a second layer over
+    // the visuals, and this TV's display hardware then hands the whole 4K picture to the GPU to compose.
+    private final Runnable hideOverlay = () -> overlay.animate().alpha(0f).setDuration(600)
+            .withEndAction(() -> {
+                overlay.setVisibility(View.GONE);
+                updateCovered();
+            }).start();
 
     @Override
     protected void onCreate(Bundle state) {
@@ -54,6 +60,8 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
         hint = findViewById(R.id.hint);
         prefs = getSharedPreferences("state", MODE_PRIVATE);
         settings = new Settings(this);
+        settings.logLearned();
+        logDevice();
 
         // Finding ~10,000 preset files takes 1-2 s on TV storage: do it off the main thread, then start drawing.
         new Thread(() -> {
@@ -89,9 +97,10 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
         int h = settings.isAuto() ? 720 : settings.renderHeight();  // Auto: each preset then asks for its own
         glView.getHolder().setFixedSize(Settings.widthFor(h), h);
         glView.setRenderer(renderer);
-        glView.setOnClickListener(v -> glView.queueEvent(() -> renderer.step(1, false, true)));
+        glView.setOnClickListener(v -> glView.queueEvent(() -> renderer.step(1, true, true)));
         glView.setOnLongClickListener(v -> {
             menu.open();
+            updateCovered();
             return true;
         });
         ViewGroup stage = findViewById(R.id.stage);
@@ -179,6 +188,7 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
             if (keyCode == KeyEvent.KEYCODE_BACK || keyCode == KeyEvent.KEYCODE_MENU) {
                 if (event.getAction() == KeyEvent.ACTION_UP && (keyCode == KeyEvent.KEYCODE_MENU || !menu.back())) {
                     menu.close();
+                    updateCovered();
                     glView.requestFocus();
                 }
                 return true;
@@ -208,11 +218,11 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
         switch (keyCode) {
             case KeyEvent.KEYCODE_DPAD_RIGHT:
             case KeyEvent.KEYCODE_MEDIA_FAST_FORWARD:
-                glView.queueEvent(() -> renderer.step(1, false, true));
+                glView.queueEvent(() -> renderer.step(1, true, true));
                 return true;
             case KeyEvent.KEYCODE_DPAD_LEFT:
             case KeyEvent.KEYCODE_MEDIA_REWIND:
-                glView.queueEvent(() -> renderer.step(-1, false, true));
+                glView.queueEvent(() -> renderer.step(-1, true, true));
                 return true;
             case KeyEvent.KEYCODE_DPAD_UP:
             case KeyEvent.KEYCODE_CHANNEL_UP:
@@ -227,6 +237,7 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
             case KeyEvent.KEYCODE_NUMPAD_ENTER:
             case KeyEvent.KEYCODE_MENU:
                 menu.open();
+                updateCovered();
                 return true;
             case KeyEvent.KEYCODE_INFO:
                 showOverlay(true);
@@ -263,9 +274,18 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
         hint.setVisibility(withHint || firstOverlay ? View.VISIBLE : View.GONE);
         firstOverlay = false;
         overlay.animate().cancel();
+        overlay.setVisibility(View.VISIBLE);
         overlay.setAlpha(1f);
         ui.removeCallbacks(hideOverlay);
         ui.postDelayed(hideOverlay, OVERLAY_MS);
+        updateCovered();
+    }
+
+    /** Tells Auto picture whether anything is drawn over the visuals (see VizRenderer.covered). */
+    private void updateCovered() {
+        if (renderer != null) {
+            renderer.covered = overlay.getVisibility() == View.VISIBLE || (menu != null && menu.isOpen());
+        }
     }
 
     @Override
@@ -275,6 +295,7 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
             subtitle.setText("");
             hint.setVisibility(View.GONE);
             overlay.animate().cancel();
+            overlay.setVisibility(View.VISIBLE);
             overlay.setAlpha(1f);
             ui.removeCallbacks(hideOverlay);
         });
@@ -315,11 +336,6 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
         glView.queueEvent(renderer::applySettings);
     }
 
-    @Override
-    public float level() {
-        return renderer.level;
-    }
-
     private volatile String packStatus;
 
     @Override
@@ -353,6 +369,20 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
             glView.getHolder().setFixedSize(Settings.widthFor(height), height);
             menu.refresh();
         });
+    }
+
+    /** CPU and RAM, to compare TVs when reading logs (the GPU name is logged when projectM starts). */
+    private void logDevice() {
+        android.app.ActivityManager.MemoryInfo mem = new android.app.ActivityManager.MemoryInfo();
+        ((android.app.ActivityManager) getSystemService(ACTIVITY_SERVICE)).getMemoryInfo(mem);
+        String mhz = "?";
+        try (java.io.BufferedReader r = new java.io.BufferedReader(new java.io.FileReader(
+                "/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq"))) {
+            mhz = String.valueOf(Long.parseLong(r.readLine().trim()) / 1000);
+        } catch (Exception ignored) {
+        }
+        Log.i(TAG, String.format("device %s: %d cores, %s MHz, RAM %d MB (%d MB free)", android.os.Build.MODEL,
+                Runtime.getRuntime().availableProcessors(), mhz, mem.totalMem >> 20, mem.availMem >> 20));
     }
 
     private void hideSystemBars() {

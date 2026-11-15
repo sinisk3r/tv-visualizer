@@ -1,10 +1,18 @@
 // JNI bridge: one projectM instance, driven from the GLSurfaceView render thread only.
 #include <jni.h>
 #include <android/log.h>
+#include <EGL/egl.h>
+#include <EGL/eglext.h>
 #include <GLES3/gl3.h>
 #include <projectM-4/projectM.h>
 #include <atomic>
+#include <chrono>
+#include <condition_variable>
+#include <fstream>
+#include <iterator>
+#include <mutex>
 #include <string>
+#include <thread>
 
 #define LOG(...) __android_log_print(ANDROID_LOG_INFO, "Visualizer", __VA_ARGS__)
 
@@ -21,9 +29,87 @@ void onFailed(const char* file, const char* msg, void*) {
     LOG("preset failed: %s: %s", file ? file : "?", msg ? msg : "?");
     events |= EV_FAILED;
 }
+// --- shader warmer ---
+// Loading a preset blocks the render thread while its warp and composite shaders compile (25-220 ms on a
+// Mali-G52), which shows as a freeze at every change. The GPU driver keeps compiled shaders in Android's
+// process-wide shader cache, so a second, tiny projectM on its own thread and GL context loads the *next*
+// preset ahead of time; the real load then finds its shaders compiled (measured ~100 ms down to ~35 ms).
+std::mutex warmLock;
+std::condition_variable warmWake;
+std::string warmWanted;      // latest path asked for; older requests are dropped
+std::string warmTexDir;
+bool warmStarted = false;
+
+bool usesSharedMemory(const std::string& path) {
+    // gmegabuf is one buffer shared by every projectM instance, without a lock: never run such presets here.
+    std::ifstream in(path, std::ios::binary);
+    std::string text((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    return text.find("gmegabuf") != std::string::npos;
+}
+
+void warmLoop() {
+    EGLDisplay dpy = eglGetDisplay(EGL_DEFAULT_DISPLAY);
+    eglInitialize(dpy, nullptr, nullptr);
+    const EGLint cfgAttr[] = {EGL_RENDERABLE_TYPE, EGL_OPENGL_ES3_BIT_KHR, EGL_SURFACE_TYPE, EGL_PBUFFER_BIT,
+                              EGL_RED_SIZE, 8, EGL_GREEN_SIZE, 8, EGL_BLUE_SIZE, 8, EGL_NONE};
+    EGLConfig cfg;
+    EGLint n = 0;
+    if (!eglChooseConfig(dpy, cfgAttr, &cfg, 1, &n) || n < 1) { LOG("warmer: no EGL config"); return; }
+    const EGLint ctxAttr[] = {EGL_CONTEXT_CLIENT_VERSION, 3, EGL_NONE};
+    EGLContext ctx = eglCreateContext(dpy, cfg, EGL_NO_CONTEXT, ctxAttr);
+    const EGLint pbAttr[] = {EGL_WIDTH, 16, EGL_HEIGHT, 16, EGL_NONE};
+    EGLSurface surf = eglCreatePbufferSurface(dpy, cfg, pbAttr);
+    if (ctx == EGL_NO_CONTEXT || surf == EGL_NO_SURFACE || !eglMakeCurrent(dpy, surf, surf, ctx)) {
+        LOG("warmer: no GL context");
+        return;
+    }
+    projectm_handle w = projectm_create();
+    if (!w) { LOG("warmer: projectm_create failed"); return; }
+    projectm_set_window_size(w, 64, 36);
+    projectm_set_preset_locked(w, true);
+    {
+        std::lock_guard<std::mutex> g(warmLock);
+        const char* paths[] = {warmTexDir.c_str()};
+        projectm_set_texture_search_paths(w, paths, 1);
+    }
+    for (;;) {
+        std::string path;
+        {
+            std::unique_lock<std::mutex> g(warmLock);
+            warmWake.wait(g, [] { return !warmWanted.empty(); });
+            path.swap(warmWanted);
+        }
+        if (usesSharedMemory(path)) continue;
+        auto t0 = std::chrono::steady_clock::now();
+        projectm_load_preset_file(w, path.c_str(), false);
+        glFinish();
+        long ms = (long) std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::steady_clock::now() - t0).count();
+        LOG("warmed %ld ms  %s", ms, path.c_str() + path.rfind('/') + 1);
+    }
+}
 }  // namespace
 
 extern "C" {
+
+// Compiles a preset's shaders in the background so loading it later is quick. Any thread.
+JNIEXPORT void JNICALL
+Java_io_github_sinisk3r_visualizer_Native_warm(JNIEnv* env, jclass, jstring path, jstring textureDir) {
+    const char* p = env->GetStringUTFChars(path, nullptr);
+    const char* t = env->GetStringUTFChars(textureDir, nullptr);
+    {
+        std::lock_guard<std::mutex> g(warmLock);
+        warmWanted = p;
+        if (!warmStarted) {
+            warmStarted = true;
+            warmTexDir = t;
+            std::thread(warmLoop).detach();
+        }
+    }
+    warmWake.notify_one();
+    env->ReleaseStringUTFChars(path, p);
+    env->ReleaseStringUTFChars(textureDir, t);
+}
 
 JNIEXPORT jboolean JNICALL
 Java_io_github_sinisk3r_visualizer_Native_create(JNIEnv* env, jclass, jint w, jint h, jstring textureDir,
@@ -48,7 +134,7 @@ Java_io_github_sinisk3r_visualizer_Native_create(JNIEnv* env, jclass, jint w, ji
     projectm_set_preset_switch_failed_event_callback(pm, onFailed, nullptr);
     events = 0;
     char* v = projectm_get_version_string();
-    LOG("projectM %s, %dx%d", v, w, h);
+    LOG("projectM %s, %dx%d, %s", v, w, h, reinterpret_cast<const char*>(glGetString(GL_RENDERER)));
     projectm_free_string(v);
     return JNI_TRUE;
 }
@@ -59,8 +145,10 @@ Java_io_github_sinisk3r_visualizer_Native_resize(JNIEnv*, jclass, jint w, jint h
 }
 
 JNIEXPORT void JNICALL
-Java_io_github_sinisk3r_visualizer_Native_loadPreset(JNIEnv* env, jclass, jstring path, jboolean smooth) {
+Java_io_github_sinisk3r_visualizer_Native_loadPreset(JNIEnv* env, jclass, jstring path, jboolean smooth,
+                                                    jfloat blendSec) {
     if (!pm) return;
+    if (smooth) projectm_set_soft_cut_duration(pm, blendSec);
     const char* p = env->GetStringUTFChars(path, nullptr);
     projectm_load_preset_file(pm, p, smooth);
     env->ReleaseStringUTFChars(path, p);

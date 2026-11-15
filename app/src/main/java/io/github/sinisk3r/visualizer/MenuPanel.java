@@ -7,7 +7,6 @@ import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -40,8 +39,6 @@ final class MenuPanel {
         void settingsChanged();
         /** Picture choice changed: re-apply the render size. */
         void resolutionChanged();
-        /** Music loudness 0..1, for the art to breathe with. */
-        float level();
         /** Starts the full-pack download (no-op while one runs). */
         void downloadPack();
         /** "Downloading 34%" or an error while/after a download; null when idle. */
@@ -52,7 +49,6 @@ final class MenuPanel {
     private final View root;
     private final LinearLayout rows;
     private final TextView nowPlaying;
-    private final ImageView art;
     private final Settings settings;
     private final PresetLibrary library;
     private final Host host;
@@ -81,9 +77,6 @@ final class MenuPanel {
         root = act.findViewById(R.id.menu);
         rows = act.findViewById(R.id.menu_rows);
         nowPlaying = act.findViewById(R.id.menu_now);
-        art = act.findViewById(R.id.menu_art);
-        int id = act.getResources().getIdentifier("menu_art", "drawable", act.getPackageName());
-        if (id != 0) art.setImageResource(id);
     }
 
     boolean isOpen() {
@@ -97,10 +90,6 @@ final class MenuPanel {
         root.setVisibility(View.VISIBLE);
         build(0);  // after VISIBLE: a hidden view cannot take focus
         root.animate().alpha(1f).setDuration(140).withLayer().start();
-        if (art.getDrawable() != null) {
-            art.setVisibility(View.VISIBLE);
-            art.postOnAnimation(breathe);
-        }
     }
 
     void close() {
@@ -127,24 +116,6 @@ final class MenuPanel {
     private static void setIfChanged(TextView t, String s) {
         if (!s.contentEquals(t.getText())) t.setText(s);
     }
-
-    /** The art drifts and brightens a little with the music, one step per display frame while open. */
-    private final Runnable breathe = new Runnable() {
-        private float smooth;
-
-        @Override
-        public void run() {
-            if (!isOpen()) return;
-            smooth += (host.level() - smooth) * 0.15f;
-            double t = android.os.SystemClock.uptimeMillis() / 1000.0;
-            art.setAlpha(0.14f + 0.16f * smooth);
-            float s = 1.04f + 0.03f * smooth;
-            art.setScaleX(s);
-            art.setScaleY(s);
-            art.setTranslationY((float) (Math.sin(t * 0.6) * dp(6)));
-            art.postOnAnimation(this);
-        }
-    };
 
     // --- pages ---
 
@@ -192,6 +163,10 @@ final class MenuPanel {
             settings.setBeatCuts(!settings.beatCuts());
             changed();
         }, null);
+        addRow("Skip heavy presets", () -> settings.skipHeavy() ? "On  ·  " + heavyCount() + " skipped" : "Off", v -> {
+            settings.setSkipHeavy(!settings.skipHeavy());
+            changed();
+        }, null);
 
         addHeader("Styles  ·  " + String.format("%,d", library.all.size()) + " presets");
         for (String style : library.categories) {
@@ -219,8 +194,8 @@ final class MenuPanel {
                     settings.unhideAll();
                     changed();
                 }, null);
-        addRow("Re-test picture sizes", () -> settings.learnedCount() == 0 ? "Nothing learned"
-                : settings.learnedCount() + " learned", v -> {
+        addRow("Re-test picture sizes", () -> settings.learnedCount() + settings.tooSlowCount() == 0
+                ? "Nothing learned" : settings.learnedCount() + settings.tooSlowCount() + " learned", v -> {
             settings.forgetLearned();
             host.resolutionChanged();
             refresh();
@@ -251,6 +226,15 @@ final class MenuPanel {
     }
 
     // --- values ---
+
+    /** Presets in the library that "Skip heavy presets" leaves out: listed heavy or measured too slow here. */
+    private String heavyCount() {
+        int n = 0;
+        for (File f : library.all) {
+            if (library.heavy.contains(f.getName()) || settings.isTooSlow(f.getName())) n++;
+        }
+        return String.format("%,d", n);
+    }
 
     private boolean isFav() {
         File p = host.currentPreset();
