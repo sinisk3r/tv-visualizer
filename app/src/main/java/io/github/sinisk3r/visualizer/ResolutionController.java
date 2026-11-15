@@ -51,15 +51,43 @@ final class ResolutionController {
         this.height = max;
     }
 
-    /** Smooth: a full 60 fps, 360p to 720p (a 720p surface). */
+    /** Smooth: a full 60 fps, from 360p up to what the screen shows (no cap: a light preset on a 4K TV may climb
+     *  to 2160p). */
+    static ResolutionController smooth(int screenHeight) {
+        return new ResolutionController(360, Math.max(720, screenHeight), 55f, 58f, 60f);
+    }
+
     static ResolutionController smooth() {
-        return new ResolutionController(360, 720, 55f, 58f, 60f);
+        return smooth(720);
     }
 
     /** Sharp: an even 30 fps (paced), 480p to 1080p (a 1080p surface). It shrinks below 31 fps, because 24-30
      *  cannot be paced and judders, and grows at 42 fps or more. */
+    static ResolutionController sharp(int screenHeight) {
+        return new ResolutionController(480, Math.max(1080, screenHeight), 31f, 42f, 36f);
+    }
+
     static ResolutionController sharp() {
-        return new ResolutionController(480, 1080, 31f, 42f, 36f);
+        return sharp(1080);
+    }
+
+    /** Surface heights the picture is stretched onto. The surface follows the drawing size, so a 720p drawing is not
+     *  stretched onto 4K buffers (the stretch costs more the bigger the surface: ~5% at 720p, ~11% at 1080p). */
+    static final int[] SURFACES = {720, 1080, 1440, 2160};
+
+    /**
+     * The surface for drawing height {@code h}, given the current one: up at once to the smallest that holds it;
+     * down only when the drawing is 10% under a smaller one, so a preset near a step does not flip between two.
+     */
+    static int surfaceFor(int h, int current, int max) {
+        int fit = SURFACES[SURFACES.length - 1];
+        for (int s : SURFACES) {
+            if (s >= h) { fit = s; break; }
+        }
+        fit = Math.min(fit, Math.max(SURFACES[0], max));
+        if (fit > current) return fit;
+        if (fit < current && h <= fit * 0.9f) return fit;
+        return current;
     }
 
     int height() {

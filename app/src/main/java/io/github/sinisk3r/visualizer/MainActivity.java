@@ -138,6 +138,10 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
                 testPreset != null || prefs.getBoolean("locked", false));
         renderer.pacing = getIntent().getBooleanExtra("pace", true);  // test hook: --ez pace false
         renderer.innerHeight = getIntent().getIntExtra("inner", 0);    // test hook: --ei inner 480
+        // Auto picture may climb to the screen's own height (2160 on a 4K TV).
+        android.view.Display.Mode mode = getWindowManager().getDefaultDisplay().getMode();
+        renderer.screenHeight = Math.min(mode.getPhysicalWidth(), mode.getPhysicalHeight()) > 0
+                ? Math.min(2160, Math.min(mode.getPhysicalWidth(), mode.getPhysicalHeight())) : 1080;
         Native.setSharpen(getIntent().getBooleanExtra("sharpen", false)); // test hook: --ez sharpen true
         menu = new MenuPanel(this, settings, library, this);
         menu.setPanels(new FindPanel(this, settings, library, lists, thumbDir(), this),

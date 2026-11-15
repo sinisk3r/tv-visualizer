@@ -146,4 +146,24 @@ public class ResolutionControllerTest {
         for (int i = 0; i < 200; i++) c.update(55.4f, t += 500);
         assertEquals(720, c.height());
     }
+
+    @Test
+    public void noCapOnA4kScreen() {
+        ResolutionController c = ResolutionController.smooth(2160);
+        c.start(720);
+        long t = 0;
+        for (int i = 0; i < 2000; i++) c.update(60, t += 500);
+        assertEquals("a light preset climbs to the screen's height", 2160, c.height());
+        assertEquals(1080, ResolutionController.sharp(720).max);
+    }
+
+    @Test
+    public void surfaceFollowsTheDrawingSize() {
+        assertEquals(720, ResolutionController.surfaceFor(600, 720, 2160));
+        assertEquals("up at once", 1080, ResolutionController.surfaceFor(728, 720, 2160));
+        assertEquals(2160, ResolutionController.surfaceFor(1500, 1080, 2160));
+        assertEquals("never past the screen", 1080, ResolutionController.surfaceFor(1500, 1080, 1080));
+        assertEquals("just under a step: stays", 1080, ResolutionController.surfaceFor(712, 1080, 2160));
+        assertEquals("well under: down", 720, ResolutionController.surfaceFor(640, 1080, 2160));
+    }
 }

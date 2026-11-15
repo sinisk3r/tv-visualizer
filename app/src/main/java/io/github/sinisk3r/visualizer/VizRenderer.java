@@ -285,13 +285,21 @@ final class VizRenderer implements GLSurfaceView.Renderer {
         return innerHeight > 0 ? innerHeight : surfaceHeight;
     }
 
-    /** Surface height for the chosen picture: Smooth draws inside 720p, Sharp inside 1080p, else fixed. */
+    /** The screen's height (2160 on a 4K TV): Auto picture may climb this far. Set by the activity. */
+    volatile int screenHeight = 1080;
+
+    /** Surface height for the chosen picture: Auto follows the drawing size (ResolutionController.surfaceFor), a
+     *  fixed size is its own height. */
     private int surfaceFor() {
         if (!settings.isAuto()) return settings.renderHeight();
-        return settings.renderHeight() == Settings.AUTO_SHARP ? 1080 : 720;
+        return ResolutionController.surfaceFor(resolution.height(), surfaceHeight, screenHeight);
     }
 
     private void applyInnerSize() {
+        if (settings.isAuto()) {
+            int s = surfaceFor();
+            if (s != surfaceHeight) want(s);  // draws at the old surface's size until the new one lands
+        }
         int h = settings.isAuto() ? resolution.height() : innerHeight;
         if (h >= surfaceHeight) h = 0;  // same size: draw straight to the surface
         Native.setInnerSize(h > 0 ? Settings.widthFor(h) : 0, h);
@@ -307,7 +315,7 @@ final class VizRenderer implements GLSurfaceView.Renderer {
     /** A preset starts at the height it settled at last time on this TV. */
     private void startResolution(File preset) {
         ResolutionController want = settings.renderHeight() == Settings.AUTO_SHARP
-                ? ResolutionController.sharp() : ResolutionController.smooth();
+                ? ResolutionController.sharp(screenHeight) : ResolutionController.smooth(screenHeight);
         if (want.max != resolution.max) resolution = want;
         resolution.start(settings.learnedHeight(preset.getName()));
         if (ready) applyInnerSize();
