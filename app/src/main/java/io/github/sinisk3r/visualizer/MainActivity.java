@@ -146,7 +146,10 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
             audio = new Visualizer(0);
             audio.setEnabled(false);
             audio.setCaptureSize(Visualizer.getCaptureSizeRange()[1]);
-            audio.setScalingMode(Visualizer.SCALING_MODE_NORMALIZED);
+            // As played, not normalized: normalizing scales every 21 ms capture to full level, which flattened the
+            // loudness swings projectM finds beats in (measured: swing cv 0.18-0.25 normalized, 0.33-0.66 as
+            // played). Native.addPcm evens out the level slowly instead.
+            audio.setScalingMode(Visualizer.SCALING_MODE_AS_PLAYED);
             audio.setEnabled(true);
             renderer.audio = audio;
         } catch (RuntimeException e) {

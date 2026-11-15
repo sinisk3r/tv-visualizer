@@ -1,10 +1,32 @@
 # Next work
 
-The queue for this repo, top item first. Pick up with `/next-work` (or paste a prompt into a new session).
+The queue for this repo, top item first (the user's order: low effort, high value first; then the engine). Pick up with `/next-work` (or paste a prompt into a new session).
 When an item is done, move it to "Done" with the date and commit. Add new items with a ready-to-paste prompt.
 Read `CLAUDE.md` first, especially "Testing off the TV".
 
-## A. Batch projectM custom shapes (engine), first
+## D. Music feel: quick wins first (before A)
+
+The user wants the visuals to follow the music much more closely. Order: low effort, high value first. The audio
+feed fix is done (see Done). Ask the user first: what plays the sound (TV speakers, soundbar/ARC, Bluetooth),
+and does it feel late, early, or not reacting? Check `adb logcat -s Visualizer | grep audio:` for level and gain.
+
+```
+Read CLAUDE.md and docs/next.md item D. Goal: the visuals feel locked to the music. Quick wins, in order:
+1. Visual delay setting (menu row, -100..+300 ms, in 20 ms steps): delay the PCM fed to projectM by buffering
+   captures, so beats line up with the user's speakers. Default 0. Test by ear with the user.
+2. Reactivity: tools/ script that scores each preset's audio use (bass/mid/treb/_att/vol references in equations
+   and shaders, waveform drawn, custom waves reading value1/value2). About 2% of the pack uses no audio at all
+   (210 presets) and 3% only draw the waveform. Ship a list; skip the "no audio" ones by default (like heavy.txt)
+   and play the strongly reactive ones more often.
+3. Song-aware switching: switch preset on a song change (a gap of near-silence, or a sharp drop and rise in the
+   slow AGC level in native.cpp) and on big drops, not only on the 30 s timer. Keep beat cuts.
+Measure what you can on the TV, ask the user to judge by eye, and commit each step separately.
+```
+
+Later (bigger): match preset energy to the music's energy; time blends to the beat (tempo detection);
+remember per song which preset looked best (needs permission to read what's playing).
+
+## A. Batch projectM custom shapes (engine), after D
 
 Shape-heavy presets crawl on TVs whatever the picture size. Background, measurements and plan:
 `docs/performance.md`.
@@ -57,5 +79,7 @@ licence (e.g. OFL pixel fonts), with the licence noted in README.
   hardware (CPU and GPU are logged at start as `device ...` and in the projectM line).
 
 ## Done
+- 15-Nov-2026: audio feed fixed. The capture was normalized to full level every 21 ms, which flattened loudness
+  swings (cv 0.18-0.25 against 0.33-0.66 as played). Now as played, plus a slow 4 s gain in native.cpp.
 - 15-Nov-2026: smoother switches, shader warmer, blends on remote keys, Skip heavy presets, menu art removed
   (`4bd4e0c`).

@@ -6,7 +6,9 @@
 #include <GLES3/gl3.h>
 #include <projectM-4/projectM.h>
 #include <atomic>
+#include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <condition_variable>
 #include <fstream>
 #include <iterator>
@@ -168,13 +170,59 @@ Java_io_github_sinisk3r_visualizer_Native_setLocked(JNIEnv*, jclass, jboolean lo
     if (pm) projectm_set_preset_locked(pm, locked);
 }
 
+// Slow automatic gain. The capture comes "as played", so quiet songs or a low app volume give small waves. The
+// gain follows the level over ~4 s: it fills the screen for quiet music but keeps the beat-to-beat swings that
+// projectM's bass/mid/treb (current level against a ~2 s average) and beat detection depend on.
+constexpr float AGC_TARGET_RMS = 0.25f;   // a little under the normalized level, so drum hits do not clip
+constexpr float AGC_SECONDS = 4.0f;
+constexpr float AGC_MAX_GAIN = 8.0f;
+constexpr float AGC_SILENCE = 0.004f;     // below this level it is silence: do not pump up noise
+float agcLevel = 0.0f;
+float pcmBuf[4096];
+std::chrono::steady_clock::time_point agcLast;
+// Log once per 10 s: input level and gain, to check the audio path on a new TV.
+std::chrono::steady_clock::time_point agcLogAt;
+float agcLogIn = 0, agcLogGain = 0;
+int agcLogN = 0;
+
 // 8-bit unsigned mono PCM, straight from android.media.audiofx.Visualizer.getWaveForm().
 JNIEXPORT void JNICALL
 Java_io_github_sinisk3r_visualizer_Native_addPcm(JNIEnv* env, jclass, jbyteArray data, jint count) {
     if (!pm || count <= 0) return;
+    if (count > 4096) count = 4096;
     jbyte* b = env->GetByteArrayElements(data, nullptr);
-    projectm_pcm_add_uint8(pm, reinterpret_cast<const uint8_t*>(b), count, PROJECTM_MONO);
+    const auto* u = reinterpret_cast<const uint8_t*>(b);
+    float sum = 0;
+    for (int i = 0; i < count; i++) {
+        float x = (static_cast<float>(u[i]) - 128.0f) / 128.0f;
+        pcmBuf[i] = x;
+        sum += x * x;
+    }
     env->ReleaseByteArrayElements(data, b, JNI_ABORT);
+    float rms = std::sqrt(sum / static_cast<float>(count));
+
+    auto now = std::chrono::steady_clock::now();
+    float dt = agcLast.time_since_epoch().count() == 0
+            ? 0.016f : std::chrono::duration<float>(now - agcLast).count();
+    agcLast = now;
+    if (dt > 0.5f) dt = 0.5f;
+    float a = std::exp(-dt / AGC_SECONDS);
+    agcLevel = agcLevel == 0.0f ? rms : agcLevel * a + rms * (1.0f - a);
+    float gain = agcLevel < AGC_SILENCE ? 1.0f : std::min(AGC_MAX_GAIN, std::max(1.0f, AGC_TARGET_RMS / agcLevel));
+    for (int i = 0; i < count; i++) pcmBuf[i] = std::max(-1.0f, std::min(1.0f, pcmBuf[i] * gain));
+    projectm_pcm_add_float(pm, pcmBuf, count, PROJECTM_MONO);
+
+    agcLogIn += rms;
+    agcLogGain += gain;
+    agcLogN++;
+    if (now >= agcLogAt) {
+        if (agcLogN > 0 && agcLogAt.time_since_epoch().count() != 0) {
+            LOG("audio: level %.3f, gain %.1f (10 s average)", agcLogIn / agcLogN, agcLogGain / agcLogN);
+        }
+        agcLogAt = now + std::chrono::seconds(10);
+        agcLogIn = agcLogGain = 0;
+        agcLogN = 0;
+    }
 }
 
 // Draws one frame and returns the callback events raised since the last frame.
