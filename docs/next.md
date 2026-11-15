@@ -30,29 +30,22 @@ Later (bigger): match preset energy to the music's energy (reactivity.txt has th
 beat (tempo detection); use the media session for exact song changes and per-song memory (needs notification
 access).
 
-## A. Batch projectM custom shapes (engine)
+## A2. After the shape fix: heavy list and upstream
 
-Shape-heavy presets crawl on TVs whatever the picture size. Background, measurements and plan:
-`docs/performance.md`.
+The backport of upstream #1044 tripled shape-heavy presets on the TV (see docs/performance.md). Open:
+- **Comment on #1044** with the TV results: draft in `docs/upstream/pr1044-comment.md`. Needs the user's OK and a
+  pushed commit to link the patch. Never post without asking.
+- **Heavy list is now too strict:** `heavy.txt` (200+ instances, 1,654 presets) and Auto picture's "too slow" list
+  were measured before the fix. Re-measure and raise the threshold or drop the list.
+- **Non-additive borders** are still one draw per instance (phlegmployant 12 fps). A possible upstream follow-up.
 
 ```
-Read CLAUDE.md and docs/performance.md. Goal: make shape-heavy MilkDrop presets fast in projectM by batching
-custom shape drawing, and prepare an upstream pull request.
-
-1. Search projectM GitHub issues/PRs for earlier work on custom shape or draw-call performance. Report before coding.
-2. Build the macOS test harness described in CLAUDE.md ("Testing off the TV") if it doesn't exist: projectM built
-   natively, offscreen GL context, renders a fixed preset for N frames with fixed audio, prints CPU ms/frame,
-   draw calls and buffer updates, and can save frame PNGs. Keep it in tools/bench/ with a README line.
-   Use "cope - ants on acid orchestrate chaos - flx roam i hate myself.milk" and 3 other presets from
-   app/src/main/assets/heavy.txt.
-3. Calibrate: when the TV is free, run the same presets there (hold each preset at 480p, read the fps logs) and
-   record Mac ms against TV fps in docs/performance.md, so later Mac results predict this TV and a weaker one.
-4. Write the batching change against upstream master. Try 2-3 approaches in parallel git worktrees if they differ
-   meaningfully. Pick by draw-call count, Mac timing (run timings one at a time) and identical frame PNGs.
-5. Backport the winner to our v4.1.8 submodule as a patch file in the repo, applied at build time. Build the APK,
-   install on the TV, hold the "ants on acid" preset at 480p and compare fps with docs/performance.md.
-6. Done when: TV fps for that preset is measured before and after, the patch is in the app, and an upstream PR
-   branch and description are drafted. Do not open the PR or push without asking me.
+Read CLAUDE.md, docs/performance.md and docs/next.md item A2. Goal: Skip heavy presets matches the TV after the
+shape fix.
+1. With tools/tv-bench.sh, measure ~15 presets from heavy.txt spread over instance counts (200-4096) at 480p.
+2. Fit fps against instance count (and borders/additive) and set a new threshold in tools/make-heavy-list.py.
+   Regenerate heavy.txt. "Re-test picture sizes" clears the old learned "too slow" list on the TV; tell the user.
+3. Ask before posting docs/upstream/pr1044-comment.md on GitHub. Commit.
 ```
 
 ## B. Late-90s player theme for the app's UI
@@ -79,10 +72,12 @@ licence (e.g. OFL pixel fonts), with the licence noted in README.
 - **Bundle without heavy presets:** `tools/make-bundle.py` still picks heavy presets, which "Skip heavy presets"
   then hides by default (~17% of the 400). Exclude `heavy.txt` names. Note: this changes the random picks, so
   bump `versionCode`, and favourites from the old bundle may disappear for users without the full pack.
-- **Skip heavy on fast devices:** after A, decide whether "Skip heavy presets" should default off on strong
+- **Skip heavy on fast devices:** after A2, decide whether "Skip heavy presets" should default off on strong
   hardware (CPU and GPU are logged at start as `device ...` and in the projectM line).
 
 ## Done
+- 15-Nov-2026: batched custom shape draws, backport of upstream #1044 as a build-time patch: ants on acid 9.9 to
+  30.9 fps at 480p on the TV (`9fbebd3`). Mac harness skipped: the TV measurement settled it.
 - 15-Nov-2026: song-aware switching: a gap in the music (new song or a drop after silence) switches on the first
   beat; a drop without a gap cuts (`a933637`).
 - 15-Nov-2026: reactivity scores (`tools/make-reactivity-list.py`): 442 deaf presets skipped by default, top
