@@ -205,10 +205,30 @@ final class FindPanel {
         else side.focusItem(which);
     }
 
-    /** Keys first, while Find is open: Up and Down scroll the long lists at their ends. */
+    /**
+     * Keys first, while Find is open: Up and Down scroll the long lists at their ends. Left, Right and Up never
+     * leave the card (Right past Play would land on the bar's Hide); Down to the bar is MenuPanel's.
+     */
     boolean handleKey(KeyEvent e) {
         View focused = act.getCurrentFocus();
-        return content.handleKey(e, focused);
+        if (content.handleKey(e, focused)) return true;
+        if (e.getAction() != KeyEvent.ACTION_DOWN || focused == null || !isInside(focused, card)) return false;
+        int dir;
+        switch (e.getKeyCode()) {
+            case KeyEvent.KEYCODE_DPAD_LEFT: dir = View.FOCUS_LEFT; break;
+            case KeyEvent.KEYCODE_DPAD_RIGHT: dir = View.FOCUS_RIGHT; break;
+            case KeyEvent.KEYCODE_DPAD_UP: dir = View.FOCUS_UP; break;
+            default: return false;
+        }
+        View next = focused.focusSearch(dir);
+        return next == null || !isInside(next, card);
+    }
+
+    private static boolean isInside(View v, View ancestor) {
+        for (Object p = v; p instanceof View; p = ((View) p).getParent()) {
+            if (p == ancestor) return true;
+        }
+        return false;
     }
 
     // --- lists ---
@@ -306,6 +326,9 @@ final class FindPanel {
                 return lists.hasFeatured() ? String.valueOf(lists.featured().size()) : "soon";
             case SmartLists.MOST_WATCHED + 1:
                 return quarter ? "3 mo" : "month";
+            case SmartLists.NEW_TO_YOU + 1:
+            case SmartLists.RECENT + 1:
+                return String.format("%,d", lists.playlist(i - 1, System.currentTimeMillis()).size());
             case STYLES:
                 return String.valueOf(styleNames().size());
             default:

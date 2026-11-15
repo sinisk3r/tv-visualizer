@@ -75,6 +75,8 @@ final class ThumbGrabber {
     }
 
     private ByteBuffer read() {
+        int stale = clearErrors();  // projectM may leave an error behind; it is not ours
+        if (stale != GLES30.GL_NO_ERROR) Log.i(TAG, "thumbnail: earlier GL error " + stale);
         int[] prev = new int[2];
         GLES30.glGetIntegerv(GLES30.GL_READ_FRAMEBUFFER_BINDING, prev, 0);
         GLES30.glGetIntegerv(GLES30.GL_DRAW_FRAMEBUFFER_BINDING, prev, 1);
@@ -92,19 +94,36 @@ final class ThumbGrabber {
             GLES30.glFramebufferTexture2D(GLES30.GL_FRAMEBUFFER, GLES30.GL_COLOR_ATTACHMENT0, GLES30.GL_TEXTURE_2D,
                     tex, 0);
         }
+        int err = clearErrors();
+        if (err != GLES30.GL_NO_ERROR) Log.w(TAG, "thumbnail: framebuffer setup GL error " + err);
         if (scissor) GLES30.glDisable(GLES30.GL_SCISSOR_TEST);
         GLES30.glBindFramebuffer(GLES30.GL_READ_FRAMEBUFFER, 0);
         GLES30.glBindFramebuffer(GLES30.GL_DRAW_FRAMEBUFFER, fbo);
         GLES30.glBlitFramebuffer(0, 0, surfaceW, surfaceH, 0, 0, W, H, GLES30.GL_COLOR_BUFFER_BIT, GLES30.GL_LINEAR);
+        int blit = GLES30.glGetError();
+        if (blit != GLES30.GL_NO_ERROR && err == GLES30.GL_NO_ERROR) err = blit;
         GLES30.glBindFramebuffer(GLES30.GL_READ_FRAMEBUFFER, fbo);
         ByteBuffer px = ByteBuffer.allocateDirect(W * H * 4).order(ByteOrder.nativeOrder());
         GLES30.glReadPixels(0, 0, W, H, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE, px);
-        int err = GLES30.glGetError();
+        int rd = GLES30.glGetError();
+        if (rd != GLES30.GL_NO_ERROR && err == GLES30.GL_NO_ERROR) err = rd;
+        if (err != GLES30.GL_NO_ERROR) {
+            Log.w(TAG, "thumbnail: blit " + blit + ", read " + rd + ", fbo status 0x"
+                    + Integer.toHexString(GLES30.glCheckFramebufferStatus(GLES30.GL_DRAW_FRAMEBUFFER)));
+        }
         GLES30.glBindFramebuffer(GLES30.GL_READ_FRAMEBUFFER, prev[0]);
         GLES30.glBindFramebuffer(GLES30.GL_DRAW_FRAMEBUFFER, prev[1]);
         if (scissor) GLES30.glEnable(GLES30.GL_SCISSOR_TEST);
         if (err != GLES30.GL_NO_ERROR) throw new IllegalStateException("GL error " + err);
         return px;
+    }
+
+    private static int clearErrors() {
+        int first = GLES30.glGetError();
+        for (int i = 0; i < 16 && GLES30.glGetError() != GLES30.GL_NO_ERROR; i++) {
+            // drain the rest
+        }
+        return first;
     }
 
     /** RGBA rows bottom-up (GL) to a JPEG, top-down. Background thread. */

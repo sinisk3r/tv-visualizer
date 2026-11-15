@@ -98,18 +98,20 @@ final class ListRows {
         bind();
     }
 
-    /** Rewrites the rows for the window now; empty rows are GONE. */
+    /** Rewrites the rows for the window now. Empty rows and the "more" line are INVISIBLE, not GONE: they sit
+     *  inside a card that is shown anyway, and keeping their space keeps the card's height (and its top edge) the
+     *  same from list to list. An INVISIBLE row cannot take focus. */
     void bind() {
         for (int s = 0; s < rows.length; s++) {
             int item = window.item(s);
-            rows[s].setVisibility(item < 0 ? View.GONE : View.VISIBLE);
+            rows[s].setVisibility(item < 0 ? View.INVISIBLE : View.VISIBLE);
             if (item < 0) continue;
             setIfChanged(nums[s], binder.number(item));
             setIfChanged(names[s], binder.name(item));
             setIfChanged(values[s], binder.value(item));
         }
         int below = window.below();
-        more.setVisibility(below > 0 ? View.VISIBLE : View.GONE);
+        more.setVisibility(below > 0 ? View.VISIBLE : View.INVISIBLE);
         if (below > 0) setIfChanged(more, String.format("▼ %,d more", below));
     }
 

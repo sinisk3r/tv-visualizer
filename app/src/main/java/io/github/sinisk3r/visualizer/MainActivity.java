@@ -500,8 +500,6 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
     private final WatchTimer watch = new WatchTimer();
     /** Saves history and thumbnails off the UI and GL threads. */
     private final java.util.concurrent.ExecutorService io = java.util.concurrent.Executors.newSingleThreadExecutor();
-    private long savedAt;
-    private static final long SAVE_EVERY_MS = 60_000;
 
     private File historyFile() {
         return new File(getFilesDir(), "history.tsv");
@@ -544,16 +542,13 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
     /** A showing ended: into the history if it was watched (10 s or more, menu closed). */
     private void record(WatchTimer.Shown s) {
         if (s == null || history == null) return;
-        if (history.add(s.name, System.currentTimeMillis(), s.seconds)
-                && android.os.SystemClock.uptimeMillis() - savedAt > SAVE_EVERY_MS) {
-            saveHistory();
-        }
+        // Saved at once (a small file, on the io thread): an app killed without onPause keeps what it saw.
+        if (history.add(s.name, System.currentTimeMillis(), s.seconds)) saveHistory();
     }
 
     private void saveHistory() {
         WatchHistory h = history;
         if (h == null || !h.isDirty()) return;
-        savedAt = android.os.SystemClock.uptimeMillis();
         File f = historyFile();
         io.execute(() -> {
             File tmp = new File(f.getPath() + ".tmp");

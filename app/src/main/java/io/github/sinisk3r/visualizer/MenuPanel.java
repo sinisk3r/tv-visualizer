@@ -29,7 +29,8 @@ import java.util.TreeMap;
  * Bar, left to right: now playing | Previous, Next, Favourite, Hold | Shuffle, Find, Search, Settings | time | Hide
  * (alone on the far right, so it is not pressed by accident). Focus starts on Favourite. A label fades in above
  * the focused button. Cards: Settings (time per preset, Smooth or Sharp with the live frame rate, then rows to
- * Live and advanced and to About and licences), Live and advanced, Find (today's style pages) and the About viewer.
+ * Live and advanced and to About and licences), Live and advanced, Find (FindPanel: lists, presets, preview), a
+ * style's page (from Find's Styles), the 0-list (ZeroPanel, 0 pressed with the menu closed) and the About viewer.
  *
  * Everything is built once, except the Find rows, which are built once per Find page. Changes while the menu is
  * open (a new preset, a toggled setting, download progress, the clock) only rewrite values in place, so focus
@@ -289,7 +290,10 @@ final class MenuPanel {
         cardAdvanced.setVisibility(p == ADVANCED ? View.VISIBLE : View.GONE);
         cardFind.setVisibility(p == FIND ? View.VISIBLE : View.GONE);
         if (lists != null) lists.view().setVisibility(p == LISTS ? View.VISIBLE : View.GONE);
-        if (zero != null) zero.view().setVisibility(p == ZERO ? View.VISIBLE : View.GONE);
+        if (zero != null) {
+            zero.view().setVisibility(p == ZERO ? View.VISIBLE : View.GONE);
+            if (p != ZERO) zero.closed();  // its 10 s idle close is for the 0-list only, not for Find after it
+        }
         about.setVisibility(p == ABOUT ? View.VISIBLE : View.GONE);
         // The viewer covers the screen: the bar under it would only cost frames.
         bar.setVisibility(p == ABOUT ? View.GONE : View.VISIBLE);
