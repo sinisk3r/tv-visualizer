@@ -42,7 +42,8 @@ features, build and licences; this file covers how to work on it. Keep it under 
   tools/tests`. CI runs both on every push (`.github/workflows/tests.yml`).
 - UI (`app/src/androidTest`, emulator only): `./gradlew assembleDebug assembleDebugAndroidTest`, install both APKs
   with `adb -s emulator-5554`, then `am instrument -w io.github.sinisk3r.visualizer.test/androidx.test.runner.AndroidJUnitRunner`
-  (not `connectedAndroidTest`: it installs on every device, the TV too).
+  (or `ANDROID_SERIAL=emulator-5554 ./gradlew connectedDebugAndroidTest`; never without the serial: the TV too).
+  Start the emulator with `-gpu host`: the headless default (SwiftShader) hangs projectM (ANR "stuck fence").
 - New logic comes with a test in the same commit; a bug fix comes with a test that failed before it.
 
 ## Testing off the TV (the TV is often busy)
