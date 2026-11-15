@@ -88,8 +88,8 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
     private boolean testRun;
 
     private PresetLibrary library;
-    /** Channel number being typed on the remote's number keys; "" when none. */
-    private String typed = "";
+    /** Channel number being typed on the remote's number keys. */
+    private final ChannelEntry typed = new ChannelEntry();
     private static final long NUMBER_WAIT_MS = 1800;
     private final Runnable playTyped = this::playTyped;
 
@@ -245,11 +245,9 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
 
     /** A number key: add the digit, show the number and the preset it leads to, play it after a short pause. */
     private void typeDigit(int digit) {
-        if (typed.length() >= 4) typed = "";
-        typed += digit;
-        int n = Integer.parseInt(typed);
+        int n = typed.add(digit);
         File f = library.byNumber(n);
-        title.setText(typed + "_");
+        title.setText(typed.shown());
         subtitle.setText(f != null ? PresetLibrary.displayName(f)
                 : library.numberNeedsFullPack(n) ? "In the full pack: menu > Get all presets" : "No preset " + n);
         hint.setVisibility(View.GONE);
@@ -264,9 +262,9 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
 
     private void playTyped() {
         ui.removeCallbacks(playTyped);
-        if (typed.isEmpty()) return;
-        File f = library.byNumber(Integer.parseInt(typed));
-        typed = "";
+        int n = typed.take();
+        if (n < 0) return;
+        File f = library.byNumber(n);
         if (f != null) {
             glView.queueEvent(() -> renderer.play(f));
         } else {
@@ -279,7 +277,7 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
             typeDigit(keyCode - KeyEvent.KEYCODE_0);
             return true;
         }
-        if (!typed.isEmpty() && (keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER
+        if (typed.isActive() && (keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER
                 || keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER)) {
             playTyped();  // OK plays the typed number now
             return true;
