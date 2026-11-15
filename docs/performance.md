@@ -111,3 +111,28 @@ Sharp, first version (shrink below 24, grow at 30): presets sat at 24-30 fps, to
 interference 36 fps at 520p, then even 30; a light Flexi preset climbed 592p to 704p, then even 30 at 39 fps.
 Without pacing, all 5 bench presets settle at 31-35 fps between 488p and 712p.
 
+
+## Sharpen the stretch: Mac check (15-Nov-2026)
+
+`tools/mac-render/upscale-compare.sh` renders 8 presets (bench set + 3 thin-line waveforms) at 1080p, 720p and
+480p (same moment: fake clock, fixed random numbers), upscales to 1080p with linear (today's blit), CAS (one
+pass, sharpness 0.5) and FSR 1 (EASU + RCAS 0.2), and scores against the 1080p render. Mean of 8 presets:
+
+| from | method | PSNR | SSIM | sharpness vs 1080p | Mac ms |
+|---|---|---|---|---|---|
+| 480p | linear | 23.4 | 0.737 | 0.74 | 0.32 |
+| 480p | CAS | 23.1 | 0.724 | 0.92 | 0.52 |
+| 480p | FSR 1 | 23.1 | 0.725 | 0.88 | 0.97 |
+| 720p | linear | 26.4 | 0.784 | 0.83 | 0.42 |
+| 720p | CAS | 26.2 | 0.775 | 1.00 | 0.63 |
+| 720p | FSR 1 | 26.0 | 0.772 | 1.00 | 1.18 |
+
+- projectM draws differently at each size, and that dwarfs any upscaler: lines keep a fixed pixel width (2.25x
+  thicker after a 480p stretch), line waveforms take at most width/3 samples, feedback presets drift apart.
+  No upscaler recovers that, so 480p + CAS does not match 720p (PSNR 23 vs 26), though its edges are crisper
+  than linear 720p.
+- Upscaler alone (1080p shrunk, then upscaled): CAS +1.3 dB at 480p, +2.1 dB at 720p over linear; FSR 1 in
+  between at twice CAS's cost.
+- Halos: at most ~1% of pixels near bright detail pushed past the input's local range (green machine's fine
+  noise, the worst); thin lines show none worth seeing.
+- Next: CAS only, as a look upgrade on the existing sizes, not a reason to lower them. Measure on the TV.
