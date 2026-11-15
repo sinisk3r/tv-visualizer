@@ -16,6 +16,7 @@ import android.media.session.MediaSessionManager;
 import android.media.session.PlaybackState;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.SystemClock;
 import android.text.TextUtils;
 import android.util.Log;
 import android.util.TypedValue;
@@ -27,6 +28,7 @@ import android.view.ViewParent;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -35,17 +37,20 @@ import java.util.function.BooleanSupplier;
 
 /**
  * The music card (mockup A2, screens 1m and 1p): above the bar on the left while the bar is open with no other card.
- * Controls whatever app is playing: previous, a larger play/pause, next, mute. These need no permission (media
- * keys through AudioManager, mute on the music stream).
+ * Controls whatever app is playing: previous, a larger play/pause, next. These need no permission (media keys
+ * through AudioManager).
  *
  * With notification access (granted once in TV Settings, asked for only from the card's "See song and album art"
  * row, after an explainer) it also shows the playing app's album art, title, artist and play state, from its media
- * session. Nothing is stored or sent; notifications themselves are never read (MusicListener is empty).
+ * session, and, when the session can seek and knows the song's length, a scrubber under the controls: elapsed
+ * time, a bar, total time. Left/Right on it seek 10 s (held: 30 s). Nothing is stored or sent; notifications
+ * themselves are never read (MusicListener is empty).
  *
  * Our own demo songs (DemoPlayer) have no media session, so the card ignores them.
  *
- * Remote: Up from any bar button lands on play/pause; Left/Right along the controls; Down to "See song and album
- * art" when shown, then back to the bar button Up came from. Built once; updates only rewrite values.
+ * Remote: Up from any bar button lands on play/pause; Left/Right along the controls; Down to the scrubber when
+ * shown, then "See song and album art" when shown, then back to the bar button Up came from. Built once; updates
+ * only rewrite values.
  */
 final class MusicCard {
     private static final String TAG = "Visualizer";
@@ -64,8 +69,13 @@ final class MusicCard {
     private final LinearLayout card;
     private final ImageView art, playIcon;
     private final TextView song, who, src, askRow;
-    private final FrameLayout prev, play, next, mute;
-    private final View muteDot;
+    private final FrameLayout prev, play, next;
+    /** The scrubber row: elapsed, bar, total. GONE without access or without seek. */
+    private final LinearLayout seekRow;
+    private final TextView seekAt, seekTotal;
+    private final ProgressBar seekBar;
+    /** The last seek's target and when (uptime), so quick steps build on it; -1: none. */
+    private long seekTarget = -1, lastSeekAt;
     private final View explainer;
     private final TextView openSettings, notNow;
 
@@ -133,20 +143,39 @@ final class MusicCard {
                 v -> playPause());
         playIcon = (ImageView) play.getChildAt(0);
         next = button(ctl, R.id.m_next, R.drawable.ic_next, "Next song", 28, R.drawable.bar_button, v -> next());
-        mute = button(ctl, R.id.m_mute, R.drawable.ic_mute, "Mute", 28, R.drawable.bar_button, v -> toggleMute());
-        muteDot = new View(act);
-        muteDot.setBackgroundResource(R.drawable.dot);
-        muteDot.setDuplicateParentStateEnabled(true);
-        muteDot.setVisibility(View.GONE);
-        FrameLayout.LayoutParams dl = new FrameLayout.LayoutParams(dp(3), dp(3),
-                Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
-        dl.bottomMargin = dp(2);
-        mute.addView(muteDot, dl);
         src = text(12, 0xFF74747A, false);
         src.setGravity(Gravity.END);
         LinearLayout.LayoutParams sl = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
         sl.leftMargin = dp(6);
         ctl.addView(src, sl);
+
+        seekRow = new LinearLayout(act);
+        seekRow.setOrientation(LinearLayout.HORIZONTAL);
+        seekRow.setGravity(Gravity.CENTER_VERTICAL);
+        seekRow.setId(R.id.m_seek);
+        seekRow.setBackgroundResource(R.drawable.card_row);
+        seekRow.setPadding(dp(8), 0, dp(8), 0);
+        seekRow.setFocusable(true);
+        seekRow.setContentDescription("Song position: left and right seek");
+        seekRow.setVisibility(View.GONE);
+        seekAt = text(12, 0, false);
+        seekAt.setTextColor(act.getColorStateList(R.color.on_focus));
+        seekAt.setDuplicateParentStateEnabled(true);
+        seekRow.addView(seekAt);
+        seekBar = new ProgressBar(act, null, android.R.attr.progressBarStyleHorizontal);
+        seekBar.setMax(1000);
+        seekBar.setProgressDrawable(act.getDrawable(R.drawable.seek_bar));
+        seekBar.setDuplicateParentStateEnabled(true);
+        LinearLayout.LayoutParams sbl = new LinearLayout.LayoutParams(0, dp(3), 1f);
+        sbl.leftMargin = sbl.rightMargin = dp(7);
+        seekRow.addView(seekBar, sbl);
+        seekTotal = text(12, 0, false);
+        seekTotal.setTextColor(act.getColorStateList(R.color.on_focus_dim));
+        seekTotal.setDuplicateParentStateEnabled(true);
+        seekRow.addView(seekTotal);
+        LinearLayout.LayoutParams srl = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(24));
+        srl.topMargin = dp(6);
+        meta.addView(seekRow, srl);
 
         askRow = text(12, 0xFFECECEE, false);
         askRow.setTextColor(act.getColorStateList(R.color.on_focus));
@@ -258,24 +287,28 @@ final class MusicCard {
             return true;
         }
         if (!isInside(focused, card)) return false;
-        boolean inControls = focused == prev || focused == play || focused == next || focused == mute;
+        boolean inControls = focused == prev || focused == play || focused == next;
+        boolean seekShown = seekRow.getVisibility() == View.VISIBLE;
+        boolean askShown = askRow.getVisibility() == View.VISIBLE;
         switch (k) {
             case KeyEvent.KEYCODE_DPAD_UP:
-                if (focused == askRow) play.requestFocus();
+                if (focused == askRow && seekShown) seekRow.requestFocus();
+                else if (focused == askRow || focused == seekRow) play.requestFocus();
                 return true;
             case KeyEvent.KEYCODE_DPAD_DOWN:
-                if (inControls && askRow.getVisibility() == View.VISIBLE) askRow.requestFocus();
+                if (inControls && seekShown) seekRow.requestFocus();
+                else if ((inControls || focused == seekRow) && askShown) askRow.requestFocus();
                 else toBar();
                 return true;
             case KeyEvent.KEYCODE_DPAD_LEFT:
-                if (focused == play) prev.requestFocus();
+                if (focused == seekRow) seek(-1, e);
+                else if (focused == play) prev.requestFocus();
                 else if (focused == next) play.requestFocus();
-                else if (focused == mute) next.requestFocus();
                 return true;
             case KeyEvent.KEYCODE_DPAD_RIGHT:
-                if (focused == prev) play.requestFocus();
+                if (focused == seekRow) seek(1, e);
+                else if (focused == prev) play.requestFocus();
                 else if (focused == play) next.requestFocus();
-                else if (focused == next) mute.requestFocus();
                 return true;
             default:
                 return false;
@@ -329,16 +362,38 @@ final class MusicCard {
         audio.dispatchMediaKeyEvent(new KeyEvent(KeyEvent.ACTION_UP, code));
     }
 
-    private void toggleMute() {
-        try {
-            // The same call the remote's mute key ends in: the TV mutes (speakers, or a soundbar over HDMI-CEC)
-            // and shows its own mute indicator.
-            audio.adjustSuggestedStreamVolume(AudioManager.ADJUST_TOGGLE_MUTE,
-                    AudioManager.USE_DEFAULT_STREAM_TYPE, AudioManager.FLAG_SHOW_UI);
-        } catch (SecurityException e) {  // do-not-disturb can refuse it
-            toast("The TV did not allow muting now");
-        }
-        update();
+    /** Left (-1) or Right (+1) on the scrubber: 10 s, or 30 s once the key has been held ~1.5 s. */
+    private void seek(int dir, KeyEvent e) {
+        MediaController c = controller;
+        long dur = durationOf(c);
+        if (c == null || dur <= 0) return;
+        long now = SystemClock.uptimeMillis();
+        long from = NowPlaying.seekBase(seekTarget, lastSeekAt, now, positionOf(c, dur));
+        long step = NowPlaying.seekStep(e.getRepeatCount() > 0 ? e.getEventTime() - e.getDownTime() : 0);
+        seekTarget = NowPlaying.seekTarget(from, dir * step, dur);
+        lastSeekAt = now;
+        c.getTransportControls().seekTo(seekTarget);
+        showPosition(seekTarget, dur);  // at once; the app's own report follows
+    }
+
+    private static long durationOf(MediaController c) {
+        MediaMetadata m = c == null ? null : c.getMetadata();
+        return m == null ? 0 : m.getLong(MediaMetadata.METADATA_KEY_DURATION);
+    }
+
+    private static long positionOf(MediaController c, long dur) {
+        PlaybackState s = c.getPlaybackState();
+        if (s == null) return 0;
+        return NowPlaying.position(s.getPosition(), s.getLastPositionUpdateTime(), s.getPlaybackSpeed(),
+                s.getState() == PlaybackState.STATE_PLAYING, SystemClock.elapsedRealtime(), dur);
+    }
+
+    /** Rewrites the scrubber's values only. */
+    private void showPosition(long pos, long dur) {
+        setIfChanged(seekAt, NowPlaying.time(pos));
+        setIfChanged(seekTotal, NowPlaying.time(dur));
+        int p = NowPlaying.progress(pos, dur);
+        if (seekBar.getProgress() != p) seekBar.setProgress(p);
     }
 
     // --- notification access ---
@@ -484,6 +539,8 @@ final class MusicCard {
         MediaController c = controller;
         Bitmap bmp = null;
         int playing;
+        long dur = 0;
+        boolean seekable = false;
         if (c != null) {
             MediaMetadata m = c.getMetadata();
             String app = appName(c.getPackageName());
@@ -502,6 +559,9 @@ final class MusicCard {
             }
             setIfChanged(src, app);
             playing = NowPlaying.state(stateOf(c));
+            PlaybackState st = c.getPlaybackState();
+            dur = durationOf(c);
+            seekable = NowPlaying.canSeek(access, st == null ? 0 : st.getActions(), dur);
         } else if (access) {
             setIfChanged(song, "Nothing playing");
             setIfChanged(who, "Start music in any app");
@@ -516,6 +576,16 @@ final class MusicCard {
             playing = audio.isMusicActive() && !demoOn.getAsBoolean() ? NowPlaying.PLAYING : NowPlaying.STOPPED;
         }
         who.setVisibility(who.getText().length() == 0 ? View.GONE : View.VISIBLE);
+        if (seekable) {
+            // While steps follow quickly, show where they lead, not the app's lagging report.
+            long now = SystemClock.uptimeMillis();
+            showPosition(NowPlaying.seekBase(seekTarget, lastSeekAt, now, positionOf(c, dur)), dur);
+            seekRow.setVisibility(View.VISIBLE);
+        } else {
+            if (seekRow.isFocused()) play.requestFocus();  // before it goes: a GONE view drops focus
+            seekRow.setVisibility(View.GONE);
+            seekTarget = -1;
+        }
         if (bmp != shownArt) {
             shownArt = bmp;
             if (bmp != null) {
@@ -534,10 +604,6 @@ final class MusicCard {
             playIcon.setImageResource(icon);
             play.setContentDescription(playing == NowPlaying.PLAYING ? "Pause" : "Play");
         }
-        boolean muted = audio.isStreamMute(AudioManager.STREAM_MUSIC);
-        muteDot.setVisibility(muted ? View.VISIBLE : View.GONE);
-        mute.setActivated(muted);
-        mute.setContentDescription(muted ? "Unmute" : "Mute");
     }
 
     private String appName(String pkg) {

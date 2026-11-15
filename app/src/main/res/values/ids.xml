@@ -22,7 +22,7 @@
     <item name="m_prev" type="id" />
     <item name="m_play" type="id" />
     <item name="m_next" type="id" />
-    <item name="m_mute" type="id" />
+    <item name="m_seek" type="id" />
     <item name="m_ask" type="id" />
     <item name="m_open_settings" type="id" />
     <item name="m_not_now" type="id" />

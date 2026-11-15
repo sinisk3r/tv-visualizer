@@ -2,7 +2,8 @@ package io.github.sinisk3r.visualizer;
 
 /**
  * The music card's logic, kept free of views and media sessions so it can be tested on the JVM: which app's
- * session to show, what its playback state means for the play/pause button, and the card's text.
+ * session to show, what its playback state means for the play/pause button, the card's text, and the scrubber's
+ * time maths (position, seek steps, clamping, formatting).
  */
 final class NowPlaying {
     /** What the play/pause button shows: STOPPED and PAUSED show Play, PLAYING shows Pause. */
@@ -73,6 +74,65 @@ final class NowPlaying {
         if (a) return artist.trim();
         if (b) return album.trim();
         return "";
+    }
+
+    // --- the scrubber ---
+
+    /** PlaybackState.ACTION_SEEK_TO. */
+    static final long ACTION_SEEK_TO = 1L << 8;
+    /** Left/Right on the scrubber: 10 s a press; held for this long, the step grows to 30 s. */
+    static final long STEP_MS = 10_000, BIG_STEP_MS = 30_000, BIG_AFTER_MS = 1_500;
+    /** Steps this soon after the last seek build on its target, not on the app's position (which lags). */
+    static final long SEEK_CHAIN_MS = 1_500;
+
+    /** The scrubber shows only with access, a session that can seek, and a known song length. */
+    static boolean canSeek(boolean access, long actions, long durationMs) {
+        return access && (actions & ACTION_SEEK_TO) != 0 && durationMs > 0;
+    }
+
+    /**
+     * Position now: the session's last report, moved on by speed times the time since (only while it plays; times
+     * on the elapsedRealtime clock). Clamped to 0..duration. An unknown position (-1) counts as 0.
+     */
+    static long position(long reported, long reportedAt, float speed, boolean playing, long now, long durationMs) {
+        long pos = Math.max(0, reported);
+        if (playing && reportedAt > 0 && now > reportedAt) pos += (long) (speed * (now - reportedAt));
+        return clamp(pos, durationMs);
+    }
+
+    /** The step for a press held this long (0: a single press). */
+    static long seekStep(long heldMs) {
+        return heldMs >= BIG_AFTER_MS ? BIG_STEP_MS : STEP_MS;
+    }
+
+    /** Where a seek starts: the last seek's target while steps follow quickly, else the position now. */
+    static long seekBase(long lastTarget, long lastSeekAt, long now, long position) {
+        return lastTarget >= 0 && now - lastSeekAt < SEEK_CHAIN_MS ? lastTarget : position;
+    }
+
+    /** `from` moved by `delta`, kept inside the song. */
+    static long seekTarget(long from, long delta, long durationMs) {
+        return clamp(from + delta, durationMs);
+    }
+
+    /** The bar's fill, 0..1000. */
+    static int progress(long pos, long durationMs) {
+        if (durationMs <= 0) return 0;
+        return (int) (clamp(pos, durationMs) * 1000 / durationMs);
+    }
+
+    /** "0:07", "3:25", "1:02:03". */
+    static String time(long ms) {
+        long sec = Math.max(0, ms) / 1000;
+        long h = sec / 3600, m = sec / 60 % 60, s = sec % 60;
+        String ss = (s < 10 ? "0" : "") + s;
+        if (h > 0) return h + ":" + (m < 10 ? "0" : "") + m + ":" + ss;
+        return m + ":" + ss;
+    }
+
+    private static long clamp(long pos, long durationMs) {
+        if (pos < 0) return 0;
+        return durationMs > 0 && pos > durationMs ? durationMs : pos;
     }
 
     /**

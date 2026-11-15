@@ -97,7 +97,12 @@ public class MenuBarTest {
             focused(id);
         }
         key(KeyEvent.KEYCODE_DPAD_UP);
-        focused(R.id.b_prev);  // nothing above the bar while no card is open: focus stays in the menu
+        focused(R.id.m_play);  // the music card above the bar
+        gone(R.id.m_seek);     // no notification access on the emulator: no scrubber
+        key(KeyEvent.KEYCODE_DPAD_DOWN);
+        focused(R.id.m_ask);
+        key(KeyEvent.KEYCODE_DPAD_DOWN);
+        focused(R.id.b_prev);  // back to the button Up came from
 
         key(KeyEvent.KEYCODE_BACK);
         gone(R.id.menu);

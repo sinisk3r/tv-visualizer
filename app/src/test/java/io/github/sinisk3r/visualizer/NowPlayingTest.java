@@ -88,4 +88,63 @@ public class NowPlayingTest {
         assertEquals("Soundcloud", NowPlaying.appFromPackage("com.soundcloud.android"));
         assertEquals("", NowPlaying.appFromPackage(null));
     }
+
+    // --- the scrubber ---
+
+    @Test
+    public void scrubberNeedsAccessSeekAndALength() {
+        long seek = PlaybackState.ACTION_SEEK_TO | PlaybackState.ACTION_PLAY_PAUSE;
+        assertEquals(PlaybackState.ACTION_SEEK_TO, NowPlaying.ACTION_SEEK_TO);
+        assertTrue(NowPlaying.canSeek(true, seek, 200_000));
+        assertFalse("no access", NowPlaying.canSeek(false, seek, 200_000));
+        assertFalse("no seek", NowPlaying.canSeek(true, PlaybackState.ACTION_PLAY_PAUSE, 200_000));
+        assertFalse("no length (a stream)", NowPlaying.canSeek(true, seek, 0));
+        assertFalse(NowPlaying.canSeek(true, seek, -1));
+    }
+
+    @Test
+    public void positionMovesOnWhilePlaying() {
+        assertEquals(15_000, NowPlaying.position(10_000, 1_000, 1f, true, 6_000, 200_000));
+        assertEquals(20_000, NowPlaying.position(10_000, 1_000, 2f, true, 6_000, 200_000));
+        assertEquals("paused: as reported", 10_000, NowPlaying.position(10_000, 1_000, 1f, false, 6_000, 200_000));
+        assertEquals("never past the end", 200_000, NowPlaying.position(199_000, 1_000, 1f, true, 9_000, 200_000));
+        assertEquals("unknown counts as 0", 0, NowPlaying.position(-1, 1_000, 0f, false, 6_000, 200_000));
+        assertEquals("a report from the future does not go back", 10_000,
+                NowPlaying.position(10_000, 7_000, 1f, true, 6_000, 200_000));
+    }
+
+    @Test
+    public void heldKeysStepFurther() {
+        assertEquals(10_000, NowPlaying.seekStep(0));
+        assertEquals(10_000, NowPlaying.seekStep(1_499));
+        assertEquals(30_000, NowPlaying.seekStep(1_500));
+        assertEquals(30_000, NowPlaying.seekStep(9_000));
+    }
+
+    @Test
+    public void quickStepsBuildOnTheLastTarget() {
+        assertEquals("the app has not caught up", 40_000, NowPlaying.seekBase(40_000, 1_000, 1_400, 31_000));
+        assertEquals(31_000, NowPlaying.seekBase(40_000, 1_000, 2_600, 31_000));
+        assertEquals("no seek yet", 31_000, NowPlaying.seekBase(-1, 0, 100, 31_000));
+    }
+
+    @Test
+    public void seekStaysInsideTheSong() {
+        assertEquals(40_000, NowPlaying.seekTarget(30_000, 10_000, 200_000));
+        assertEquals(0, NowPlaying.seekTarget(5_000, -10_000, 200_000));
+        assertEquals(200_000, NowPlaying.seekTarget(195_000, 30_000, 200_000));
+    }
+
+    @Test
+    public void progressAndTimes() {
+        assertEquals(500, NowPlaying.progress(100_000, 200_000));
+        assertEquals(1000, NowPlaying.progress(300_000, 200_000));
+        assertEquals(0, NowPlaying.progress(5_000, 0));
+        assertEquals("0:00", NowPlaying.time(0));
+        assertEquals("0:07", NowPlaying.time(7_900));
+        assertEquals("3:25", NowPlaying.time(205_000));
+        assertEquals("59:59", NowPlaying.time(3_599_000));
+        assertEquals("1:02:03", NowPlaying.time(3_723_000));
+        assertEquals("0:00", NowPlaying.time(-5));
+    }
 }
