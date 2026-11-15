@@ -173,7 +173,8 @@ Started 15-Nov-2026: JVM tests for Settings and preset names (Robolectric), Pyth
 3. ~~UI tests for the new menu (B) on the emulator~~ (`MenuPanelsTest`, 13 tests: starting focus, each panel alone
    and VISIBLE with focus inside, Back to its button, Search keys and pad, the 0-list and its 10 s close, no row
    rebuilds, toggles keep focus; done 15-Nov-2026).
-4. TV checks stay manual but scripted: `tools/tv-bench.sh` before/after any renderer change.
+4. ~~TV checks scripted~~: `tools/tv-compare.sh before.apk after.apk [bench args]` benches both builds and prints
+   fps per preset side by side (done 15-Nov-2026). Item T is done.
 
 ```
 Read CLAUDE.md "Tests". Do step 1 one class at a time: move the logic without changing behaviour, write the
@@ -212,7 +213,7 @@ access with a one-time explainer. Test with Spotify and YouTube Music. Update th
 on the TV).
 ```
 
-## H. HDR picture (idea, 15-Nov-2026)
+## H. HDR picture (idea, 15-Nov-2026; parked: this TV's EGL has no PQ/BT.2020 surface)
 
 The TV reports HDR10, HLG, Dolby Vision and HDR10+ (`dumpsys display`). Presets are SDR (8-bit colour), so
 real HDR means expanding them: render as now, then a final pass maps SDR to HDR10 (PQ, BT.2020) with an

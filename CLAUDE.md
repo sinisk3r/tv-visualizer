@@ -28,7 +28,7 @@ features, build and licences; this file covers how to work on it. Keep it under 
 - Test on a real TV over wireless ADB. Logs: `adb logcat -s Visualizer` (fps every 10 s, Auto picture steps).
 - Speed on the TV: `tools/tv-bench.sh 480` runs the 5-preset set in `tools/bench-presets.txt` (~2.5 min); or pass
   preset paths. Holds each at 480p, ignoring filters (test hook: `am start ... --es preset <path> --ei height 480`).
-  Run one bench at a time.
+  Run one bench at a time. Before/after a renderer change: `tools/tv-compare.sh before.apk after.apk`.
 - No music app playing: `am start ... --ez demo true` plays the demo songs (streamed; Kevin MacLeod, CC BY).
 - Grant audio without the dialog: `adb shell pm grant io.github.sinisk3r.visualizer android.permission.RECORD_AUDIO`.
 - Drive the remote one key per `adb shell input keyevent <code>` call with ~0.5 s between; batched key lists
