@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Sizes follow the menu mockup (design/mockups/a2-transport-bar.html, 1920x1080 px) at half size in dp: TVs run
+     1080p at 320 dpi, so 1 dp = 2 px. No text under 12sp (24 px). -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -10,116 +12,291 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
-    <!-- Preset name, bottom left, inside the TV overscan-safe area (5%). Fades out after a few seconds. -->
+    <!-- Now-playing tag, top right inside the overscan-safe area. Shows for 4 s on every preset change (setting
+         "Show what's playing"), and while a channel number is typed. GONE once faded. -->
     <LinearLayout
         android:id="@+id/overlay"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="bottom|start"
+        android:layout_gravity="top|end"
         android:layout_marginStart="48dp"
+        android:layout_marginTop="27dp"
         android:layout_marginEnd="48dp"
-        android:layout_marginBottom="36dp"
-        android:background="@drawable/overlay_bg"
+        android:background="@drawable/card_bg"
         android:orientation="vertical"
-        android:paddingStart="20dp"
-        android:paddingTop="12dp"
-        android:paddingEnd="20dp"
-        android:paddingBottom="12dp">
+        android:paddingStart="11dp"
+        android:paddingTop="7dp"
+        android:paddingEnd="11dp"
+        android:paddingBottom="7dp"
+        android:visibility="gone">
 
         <TextView
             android:id="@+id/title"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:ellipsize="end"
-            android:maxWidth="720dp"
-            android:maxLines="1"
-            android:textColor="#FFFFFFFF"
-            android:textSize="20sp" />
+            android:ellipsize="marquee"
+            android:marqueeRepeatLimit="marquee_forever"
+            android:maxWidth="380dp"
+            android:singleLine="true"
+            android:textColor="#FFECECEE"
+            android:textSize="13sp" />
 
         <TextView
             android:id="@+id/subtitle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textColor="#B3FFFFFF"
-            android:textSize="14sp" />
+            android:layout_marginTop="2dp"
+            android:maxWidth="380dp"
+            android:singleLine="true"
+            android:textColor="#FF8A8A90"
+            android:textSize="12sp" />
 
         <TextView
             android:id="@+id/hint"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
+            android:layout_marginTop="4dp"
             android:text="@string/hint"
-            android:textColor="#80FFFFFF"
-            android:textSize="13sp" />
+            android:textColor="#FF8A8A90"
+            android:textSize="12sp" />
     </LinearLayout>
 
-    <!-- The OK menu, on the left. Neutral charcoal, see-through, so the visuals stay the main thing.
-         Rows are built by MenuPanel. No picture behind them: a plain panel is cheapest to draw over the visuals. -->
+    <!-- The OK menu: the transport bar at the bottom and the cards above it. Built by MenuPanel. Panels that are
+         not shown are GONE; everything fades in place (nothing moves or scales over the visuals). -->
     <FrameLayout
         android:id="@+id/menu"
-        android:layout_width="400dp"
+        android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_gravity="start"
-        android:layout_marginStart="40dp"
-        android:layout_marginTop="32dp"
-        android:layout_marginBottom="32dp"
-        android:background="@drawable/menu_bg"
-        android:clipToOutline="true"
+        android:clipChildren="false"
+        android:clipToPadding="false"
         android:visibility="gone">
 
-        <LinearLayout
+        <View
+            android:id="@+id/menu_scrim"
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:orientation="vertical"
-            android:paddingStart="16dp"
-            android:paddingTop="20dp"
-            android:paddingEnd="16dp"
-            android:paddingBottom="12dp">
+            android:layout_height="210dp"
+            android:layout_gravity="bottom"
+            android:background="@drawable/scrim_bottom" />
 
-            <TextView
+        <LinearLayout
+            android:id="@+id/bar"
+            android:layout_width="match_parent"
+            android:layout_height="44dp"
+            android:layout_gravity="bottom"
+            android:layout_marginStart="48dp"
+            android:layout_marginEnd="48dp"
+            android:layout_marginBottom="27dp"
+            android:background="@drawable/bar_bg"
+            android:clipChildren="false"
+            android:clipToPadding="false"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="16dp"
+            android:paddingEnd="6dp">
+
+            <LinearLayout
+                android:layout_width="280dp"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/bar_title"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="marquee"
+                    android:marqueeRepeatLimit="marquee_forever"
+                    android:singleLine="true"
+                    android:textColor="#FFECECEE"
+                    android:textSize="13sp" />
+
+                <TextView
+                    android:id="@+id/bar_style"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:singleLine="true"
+                    android:ellipsize="end"
+                    android:textColor="#FF8A8A90"
+                    android:textSize="12sp" />
+            </LinearLayout>
+
+            <!-- Buttons, added by MenuPanel: Previous, Next, Favourite, Hold | Shuffle, Find, Search, Settings. -->
+            <LinearLayout
+                android:id="@+id/bar_buttons"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:clipChildren="false"
+                android:clipToPadding="false"
+                android:gravity="center"
+                android:orientation="horizontal" />
+
+            <!-- Time per preset (closed panels) or the Back hint (a panel open). Fixed width, so the buttons
+                 stay put when one replaces the other. -->
+            <FrameLayout
+                android:layout_width="180dp"
+                android:layout_height="wrap_content">
+
+            <LinearLayout
+                android:id="@+id/bar_time"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:letterSpacing="0.12"
-                android:paddingStart="18dp"
-                android:text="@string/now_playing"
-                android:textColor="#80FFFFFF"
-                android:textSize="12sp"
-                android:textStyle="bold" />
+                android:layout_gravity="end|center_vertical"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
 
-            <TextView
-                android:id="@+id/menu_now"
-                android:layout_width="match_parent"
+                <TextView
+                    android:id="@+id/bar_elapsed"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="monospace"
+                    android:textColor="#FFA4A4AA"
+                    android:textSize="12sp" />
+
+                <ProgressBar
+                    android:id="@+id/bar_progress"
+                    style="@android:style/Widget.ProgressBar.Horizontal"
+                    android:layout_width="75dp"
+                    android:layout_height="3dp"
+                    android:layout_marginStart="7dp"
+                    android:layout_marginEnd="7dp"
+                    android:max="1000"
+                    android:progressDrawable="@drawable/progress_bar" />
+
+                <TextView
+                    android:id="@+id/bar_total"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="monospace"
+                    android:textColor="#FFA4A4AA"
+                    android:textSize="12sp" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/bar_hint"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="10dp"
-                android:ellipsize="end"
-                android:maxLines="2"
-                android:paddingStart="18dp"
-                android:paddingEnd="18dp"
-                android:textColor="#FFFFFFFF"
-                android:textSize="18sp" />
+                android:layout_gravity="end|center_vertical"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:visibility="gone">
+
+                <ImageView
+                    android:layout_width="14dp"
+                    android:layout_height="14dp"
+                    android:layout_marginEnd="5dp"
+                    android:src="@drawable/ic_back"
+                    android:tint="#FFA4A4AA" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/bar_close"
+                    android:textColor="#FFA4A4AA"
+                    android:textSize="12sp" />
+            </LinearLayout>
+
+            </FrameLayout>
+
+            <!-- Hide sits alone at the far right, away from the other buttons, so it is not pressed by accident. -->
+            <View
+                android:layout_width="1dp"
+                android:layout_height="20dp"
+                android:layout_marginStart="12dp"
+                android:layout_marginEnd="6dp"
+                android:background="#1AFFFFFF" />
+
+            <FrameLayout
+                android:id="@+id/bar_hide_slot"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:clipChildren="false"
+                android:clipToPadding="false" />
+        </LinearLayout>
+
+        <!-- Settings card, above the Settings button (mockup screen 5). -->
+        <LinearLayout
+            android:id="@+id/card_settings"
+            android:layout_width="400dp"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|end"
+            android:layout_marginEnd="48dp"
+            android:layout_marginBottom="78dp"
+            android:background="@drawable/card_bg"
+            android:orientation="vertical"
+            android:paddingStart="11dp"
+            android:paddingTop="9dp"
+            android:paddingEnd="11dp"
+            android:paddingBottom="10dp"
+            android:visibility="gone" />
+
+        <!-- Live and advanced (mockup screen 6): three columns. -->
+        <LinearLayout
+            android:id="@+id/card_advanced"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom"
+            android:layout_marginStart="48dp"
+            android:layout_marginEnd="48dp"
+            android:layout_marginBottom="78dp"
+            android:background="@drawable/card_bg"
+            android:orientation="horizontal"
+            android:paddingStart="12dp"
+            android:paddingTop="10dp"
+            android:paddingEnd="12dp"
+            android:paddingBottom="10dp"
+            android:visibility="gone" />
+
+        <!-- Find: styles and favourites (today's style pages, until the phase 2 lists). -->
+        <FrameLayout
+            android:id="@+id/card_find"
+            android:layout_width="440dp"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|start"
+            android:layout_marginStart="48dp"
+            android:layout_marginTop="27dp"
+            android:layout_marginBottom="78dp"
+            android:background="@drawable/card_bg"
+            android:visibility="gone">
 
             <ScrollView
-                android:id="@+id/menu_scroll"
+                android:id="@+id/find_scroll"
                 android:layout_width="match_parent"
-                android:layout_height="0dp"
-                android:layout_weight="1"
-                android:clipToPadding="false"
-                android:fadingEdgeLength="24dp"
+                android:layout_height="wrap_content"
+                android:fadingEdgeLength="16dp"
                 android:requiresFadingEdge="vertical"
                 android:scrollbars="none">
 
                 <LinearLayout
-                    android:id="@+id/menu_rows"
+                    android:id="@+id/find_rows"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:clipChildren="false"
-                    android:clipToPadding="false"
                     android:orientation="vertical"
                     android:paddingStart="8dp"
-                    android:paddingTop="4dp"
+                    android:paddingTop="6dp"
                     android:paddingEnd="8dp"
                     android:paddingBottom="8dp" />
             </ScrollView>
-        </LinearLayout>
+        </FrameLayout>
+
+        <!-- About and licences: its own full-screen viewer. Back returns to the settings card. -->
+        <ScrollView
+            android:id="@+id/about"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@drawable/viewer_bg"
+            android:focusable="true"
+            android:scrollbars="none"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:id="@+id/about_rows"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingStart="96dp"
+                android:paddingTop="40dp"
+                android:paddingEnd="96dp"
+                android:paddingBottom="40dp" />
+        </ScrollView>
     </FrameLayout>
 </FrameLayout>

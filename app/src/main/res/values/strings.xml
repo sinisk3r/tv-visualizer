@@ -1,8 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Visualizer</string>
-    <string name="subtitle">%1$s</string>
-    <string name="subtitle_locked">%1$s\u00A0\u00A0·\u00A0\u00A0held</string>
     <string name="hint">◀ ▶ preset\u00A0\u00A0·\u00A0\u00A0▲ ▼ style\u00A0\u00A0·\u00A0\u00A0OK menu</string>
-    <string name="now_playing">NOW PLAYING</string>
+    <string name="bar_close">close</string>
 </resources>

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Views MenuPanel builds in code; the ids let UI tests find them. -->
+<resources>
+    <item name="b_prev" type="id" />
+    <item name="b_next" type="id" />
+    <item name="b_fav" type="id" />
+    <item name="b_hold" type="id" />
+    <item name="b_shuffle" type="id" />
+    <item name="b_find" type="id" />
+    <item name="b_search" type="id" />
+    <item name="b_settings" type="id" />
+    <item name="b_hide" type="id" />
+    <item name="row_live" type="id" />
+    <item name="row_about" type="id" />
+    <item name="fixed_size" type="id" />
+    <item name="chip_smooth" type="id" />
+    <item name="chip_sharp" type="id" />
+</resources>

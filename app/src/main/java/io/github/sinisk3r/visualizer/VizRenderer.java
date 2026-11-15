@@ -134,6 +134,20 @@ final class VizRenderer implements GLSurfaceView.Renderer {
         }
     }
 
+    /**
+     * Play order for a style under the bar's Shuffle setting. Off: library order. This set: shuffled within the
+     * style (what the app always did). Everything: shuffled across every style that is on, whatever style is picked.
+     * TODO(menu phase 2): Everything ignores Up/Down styles for now; decide whether picking a style turns it off,
+     * and give lists (Featured, smart lists) their own sets once the Find panel has them.
+     */
+    private List<File> ordered(String cat) {
+        switch (settings.shuffle()) {
+            case Settings.SHUFFLE_OFF: return visible(cat);
+            case Settings.SHUFFLE_ALL: return library.shuffled(visible(PresetLibrary.ALL));
+            default: return library.shuffled(visible(cat));
+        }
+    }
+
     /** Skipped while "Skip heavy presets" is on: listed as heavy, or measured too slow on this TV. */
     private boolean isHeavy(File f) {
         return settings.skipHeavy() && (library.heavy.contains(f.getName()) || settings.isTooSlow(f.getName()));
@@ -149,7 +163,7 @@ final class VizRenderer implements GLSurfaceView.Renderer {
         }
         categories = cats;
         if (!categories.contains(category)) category = PresetLibrary.ALL;
-        order = library.shuffled(visible(category));
+        order = ordered(category);
         position = -1;
         if (keepPath != null) {
             for (int i = 0; i < order.size(); i++) {
@@ -402,7 +416,7 @@ final class VizRenderer implements GLSurfaceView.Renderer {
     void changeCategory(int delta) {
         int i = Math.max(0, categories.indexOf(category));
         category = categories.get(Math.floorMod(i + delta, categories.size()));
-        order = library.shuffled(visible(category));
+        order = ordered(category);
         position = -1;
         step(1, true, true);
     }
