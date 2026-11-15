@@ -758,7 +758,9 @@ final class MenuPanel {
 
         LinearLayout adv = column("Advanced");
         valueRow(adv, R.id.fixed_size, "Fixed picture size",
-                () -> settings.isAuto() ? "Off" : settings.renderHeight() + "p", v -> {
+                () -> settings.isAuto() ? "Off" : settings.renderHeight() + "p"
+                        + (FixedSizeAdvice.notRecommended(settings.renderHeight(), settings.learnedMedian())
+                        ? "  ·  not recommended for your TV" : ""), v -> {
                     settings.setPicture(Settings.nextFixed(settings.renderHeight()));
                     host.resolutionChanged();
                     refresh();

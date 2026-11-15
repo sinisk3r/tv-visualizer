@@ -46,6 +46,8 @@ final class VizRenderer implements GLSurfaceView.Renderer {
         void onWantHeight(int height);
         /** Even 30 fps on or off (GL thread). The activity then asks for a frame every second vsync. */
         void onPaced(boolean on);
+        /** A fixed picture size has run slow for 30 s (FixedSizeAdvice): suggest Smooth or Sharp, once. */
+        void onFixedSlow(int height, float fps);
     }
 
     private final PresetLibrary library;
@@ -326,6 +328,8 @@ final class VizRenderer implements GLSurfaceView.Renderer {
         if (height != surfaceHeight) listener.onWantHeight(height);
     }
 
+    private final FixedSizeAdvice.SlowWatch slowWatch = new FixedSizeAdvice.SlowWatch();
+
     private void countFps() {
         long ns = System.nanoTime();
         if (lastFrameNs != 0) {
@@ -343,6 +347,9 @@ final class VizRenderer implements GLSurfaceView.Renderer {
                     fpsFrames * 1000f / (now - fpsStart), worstGapNs / 1_000_000, slowFrames, pictureHeight(),
                     paced ? " paced" : "",
                     p == null ? "-" : p.getName()));
+            float fps = fpsFrames * 1000f / (now - fpsStart);
+            int fixed = settings.isAuto() ? 0 : settings.renderHeight();
+            if (slowWatch.feed(fps, fixed, covered)) listener.onFixedSlow(fixed, fps);
             fpsStart = now;
             fpsFrames = 0;
             worstGapNs = 0;

@@ -750,6 +750,12 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
     }
 
     @Override
+    public void onFixedSlow(int height, float fps) {
+        ui.post(() -> showNote(String.format("%dp is slow on this TV (%.0f fps)", height, fps),
+                "Settings > Picture: Smooth or Sharp plays smoother"));
+    }
+
+    @Override
     public void onPaced(boolean on) {
         ui.post(() -> {
             if (glView == null || on == pacedFrames) return;

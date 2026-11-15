@@ -201,6 +201,11 @@ final class Settings {
         return h != 0 ? h : typicalHeight();
     }
 
+    /** The median height Auto learned on this TV, 0 when none yet (FixedSizeAdvice). */
+    int learnedMedian() {
+        return learned.getAll().isEmpty() ? 0 : typicalHeight();
+    }
+
     /** The median learned height (any multiple of 8 since variable resolution), or 1080 when none yet. */
     private int typicalHeight() {
         java.util.List<Integer> hs = new java.util.ArrayList<>();
