@@ -37,9 +37,3 @@ Checked 15-Nov-2026. Fees and rules change: confirm in Play Console when you get
   `.aab` path. Asks before anything is uploaded.
 - Retake TV screenshots with the new menu; TV banner 1280x720.
 - Answer review questions, fix what the TV review flags (focus, banner, Leanback launcher).
-
-## Later: Apple TV (parked)
-
-A tvOS version is a separate app: projectM builds for Apple platforms, but the app shell (remote, menu, audio)
-is new code, and Apple TV apps cannot capture other apps' audio, which is how this app works on Android. It
-would need a different idea (own music player, or the mic). Apple developer program: US$99 a year.
