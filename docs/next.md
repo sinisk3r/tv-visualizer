@@ -255,6 +255,9 @@ safety form and privacy policy).
   hardware (CPU and GPU are logged at start as `device ...` and in the projectM line).
 
 ## Done
+- 15-Nov-2026: menu phase 2a merged and on the TV: Search (four-row keyboard, Speak, results on the right, every
+  typed word must match), number pad (0 / 0n / 00 / 00n rules; the 0-list hook waits for phase 2b). Not checked:
+  a real spoken query (emulator had no mic). Left: README/CLAUDE.md notes for SearchPanel after 2b merges.
 - 15-Nov-2026: "Play demo songs" in Live and advanced: four Kevin MacLeod tracks (CC BY 4.0, credited in About and
   on screen) streamed from incompetech.com, nothing shipped. Test hook `--ez demo true` for TV runs without a
   music app; the same MP3s are in `third_party/test-audio/` (gitignored) for the Mac harness.
