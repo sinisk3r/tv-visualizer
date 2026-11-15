@@ -106,6 +106,9 @@ browser (find) panel needs work. User decisions:
 - **Smart favourites:** favourite a whole style or single presets; smart playlists from viewing data (most
   watched in the last month / three months), so newer presets get the same attention as the classics. Needs a
   local play log (preset, seconds watched, date), kept on the TV only (privacy policy: no data leaves it).
+- **Pressing 0 (15-Nov-2026):** opens a list at once: favourites 01, 02 ... and playlists 001, 002 .... More
+  digits jump to a line, arrows work, OK plays; no timer while it is open (closes after 10 s idle or Back).
+  1-9 still jump straight to a preset (tag top right, plays 2 s after the last digit or on OK).
 - **Numbers (15-Nov-2026):** 0 then OK opens Favourites; 01, 02, ... 012 play single favourites. Playlists: 00
   opens the list, 001 Featured, 002 Most watched, 003 New to you, 004 Recently played (proposed instead of the
   user's 1xx, which clashes with presets 100-199; in mockup A2, awaiting the user). Presets keep 1-9,791.
@@ -162,6 +165,11 @@ The user's question: control the music app (next, pause) from our remote, and sh
   which is why it works. Ways around it: Bluetooth from the phone to the TV as a speaker (if the TV accepts
   A2DP sink; to test), the room mic (item C, no mic feature listed on this TV), or the music app's own
   background play (YouTube Music Premium on some TVs). To test on the TV with the user.
+
+User decisions, 15-Nov-2026: wanted ("one remote for everything"). Ask for notification access only when the
+user picks "See song and album art" on the card, with an explainer first; never at start. Card above the bar
+on the left: art, title, artist, previous, larger play/pause, next, mute (mockup A2 screens 1m and 1p). The
+user also asked for "a 10 or 20 second preview if allowed": unclear what of; ask.
 
 ```
 Read CLAUDE.md. Mock up first (mockup A2): a music strip in the bar (art, title, artist, previous/play/next) and
