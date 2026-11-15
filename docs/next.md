@@ -154,7 +154,7 @@ browser (find) panel needs work. User decisions:
   fast TV). In Live and advanced > Fixed picture size, a size above what this TV sustains (median learned Auto
   height, or measured fps under ~50 at that size) shows "Not recommended for your TV" (1080p on this TV). While
   a fixed size runs slow (under ~45 fps for 30 s), a small note in a bottom corner: "Slow at 1080p on this TV ·
-  Settings > Picture: Smooth", dismissable (developers testing keep it). Build after `menu-fixes` merges.
+  Settings > Picture: Smooth", dismissable (developers testing keep it). Done 15-Nov-2026 (`3bd885c`).
 - **Fps readout (15-Nov-2026):** dropped at the user's call; the settings card shows the 30 s average instead.
 
 ```
