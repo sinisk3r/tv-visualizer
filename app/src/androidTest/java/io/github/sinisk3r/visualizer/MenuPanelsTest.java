@@ -314,6 +314,32 @@ public class MenuPanelsTest {
     }
 
     @Test
+    public void theBarAloneClosesAfterTenSecondsIdleACardAfterThirty() {
+        key(KeyEvent.KEYCODE_DPAD_CENTER);
+        long opened = SystemClock.uptimeMillis();
+        assertTrue(onUi(a -> menu(a).isOpen()));
+        waitClosed(opened + MenuIdle.BAR_MS + 5_000);
+        assertTrue("bar closed too early", SystemClock.uptimeMillis() - opened >= MenuIdle.BAR_MS - 500);
+        assertTrue("the visuals take the keys again", onUi(a -> a.getCurrentFocus() instanceof android.opengl.GLSurfaceView));
+
+        openBarButton(R.id.b_settings, 5);
+        long kicked = SystemClock.uptimeMillis();
+        assertPanel(MenuPanel.SETTINGS, R.id.card_settings);
+        SystemClock.sleep(MenuIdle.BAR_MS + 2_000);
+        assertTrue("a card waits longer than the bar", onUi(a -> menu(a).isOpen()));
+        key(KeyEvent.KEYCODE_DPAD_RIGHT);  // a key restarts the wait
+        kicked = SystemClock.uptimeMillis();
+        waitClosed(kicked + MenuIdle.CARD_MS + 5_000);
+        assertTrue("card closed too early", SystemClock.uptimeMillis() - kicked >= MenuIdle.CARD_MS - 500);
+    }
+
+    private void waitClosed(long until) {
+        while (onUi(a -> menu(a).isOpen()) && SystemClock.uptimeMillis() < until) SystemClock.sleep(200);
+        assertFalse("still open after the idle wait", onUi(a -> menu(a).isOpen()));
+        assertEquals(View.GONE, (int) onUi(a -> a.findViewById(R.id.menu).getVisibility()));
+    }
+
+    @Test
     public void valueChangesAndAPresetChangeKeepEveryRowView() {
         openBarButton(R.id.b_settings, 5);
         key(KeyEvent.KEYCODE_DPAD_DOWN);

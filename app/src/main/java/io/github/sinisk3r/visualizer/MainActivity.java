@@ -316,6 +316,7 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
         if (renderer == null || menu == null) return super.dispatchKeyEvent(event);
         int keyCode = event.getKeyCode();
         if (menu.isOpen()) {
+            menu.keyPressed();  // the idle close waits from the last key
             if (keyCode == KeyEvent.KEYCODE_BACK || keyCode == KeyEvent.KEYCODE_MENU) {
                 if (event.getAction() == KeyEvent.ACTION_UP && (keyCode == KeyEvent.KEYCODE_MENU || !menu.back())) {
                     closeMenu();

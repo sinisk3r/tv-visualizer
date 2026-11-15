@@ -224,6 +224,11 @@ final class MusicCard {
         return shown;
     }
 
+    /** The access explainer is up: the menu counts it as a card (the longer idle wait). */
+    boolean explainerShown() {
+        return explainerOpen();
+    }
+
     /** Once a second while the bar is open: access may have changed in Settings, the app may have changed. */
     void tick() {
         if (shown) update();
