@@ -6,12 +6,14 @@ Read `CLAUDE.md` first, especially "Testing off the TV".
 
 ## D2. Music feel: tune and next steps (after A, or when A is blocked)
 
-Steps 1-2 of D are done (see Done). What the first TV test (15-Nov-2026, Spotify) left open:
-- A 1 s pause in the "Animals" intro counted as a gap and switched the preset mid-song. Harmless (it was a pause in
-  the music) but a longer minimum gap (0.4 s now; real song gaps were 1.6-3.2 s) would skip it.
+Steps 1-2 of D are done (see Done). TV test 15-Nov-2026, 35 min of Spotify (EDM/pop): all 7 track changes
+switched within 0-2 s (`gap:` against `dumpsys media_session`). Pauses inside songs (0.5 s, 1.1 s) also switched,
+so the minimum gap went from 0.4 s to 1.2 s and gap switches wait until a preset has played 8 s (not re-tested
+yet). Open:
+- No drop without a gap fired in 35 min (DROP_RATIO 2x may be too strict; check with tracks that build up).
 - The 0.7 s blend on gaps has not been judged by eye yet.
-- `gap:` logs the level before the gap against the 12 s level: 0.45x at a song's fade out. If drops after silence
-  show > 1 (a loud build), this could tell songs from drops (cut on drops, blend on songs).
+- `gap:` logs the level before the gap against the 12 s level: 0.04-0.62x at song ends (fades). Drops after
+  silence follow a loud build, so a value > 1 could tell them apart (cut on drops, blend on songs).
 
 ```
 Read CLAUDE.md and docs/next.md item D2. Goal: tune song-aware switching on the TV with real music.

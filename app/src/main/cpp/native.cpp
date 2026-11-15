@@ -190,16 +190,16 @@ float agcLogIn = 0, agcLogGain = 0;
 int agcLogN = 0;
 
 // Song-aware switching. Levels are the raw capture RMS (before the gain), smoothed over three time spans.
-// A gap: the 0.25 s level stays under 10% of the 12 s level for 0.4 s or more, then comes back. That is a new
+// A gap: the 0.25 s level stays under 10% of the 12 s level for 1.2 s or more, then comes back. That is a new
 // song or a drop (many EDM drops follow a second or two of silence); loudness cannot tell them apart (on Martin
 // Garrix "Animals" the drop came back at 0.46x the loud build before it), and both are good moments to switch.
 // The switch fires the moment sound returns, so it lands on the first beat.
 // A drop without a gap: the 1.5 s level reaches twice the 12 s level (a loud section after a quieter build).
 constexpr float SONG_GAP_RATIO = 0.10f;
-constexpr float SONG_GAP_SECONDS = 0.4f;
+constexpr float SONG_GAP_SECONDS = 1.2f;  // song gaps on Spotify were 1.6-10 s; pauses inside songs 0.5-1.1 s
 constexpr float SONG_BACK_RATIO = 0.30f;  // sound is back when the 0.25 s level passes 30% of the 12 s level
 constexpr float DROP_RATIO = 2.0f;
-constexpr float SONG_MIN_PRESET_S = 4.0f;  // never switch a preset that has just come on
+constexpr float SONG_MIN_PRESET_S = 8.0f;  // never switch a preset that has just come on
 constexpr float DROP_MIN_PRESET_S = 8.0f;
 constexpr float DROP_COOLDOWN_S = 20.0f;
 float lvFast = 0, lvMid = 0, lvLong = 0;
