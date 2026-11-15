@@ -34,6 +34,13 @@ final class Settings {
     private volatile Set<String> disabledStyles;  // style names, and "Style/Sub-style" keys
     private volatile Set<String> favourites;      // preset file names
 
+    /** Raise when a change makes presets render faster or slower (projectM patches, renderer changes): the first
+     *  start after the update forgets what Auto picture learned on the old renderer and measures again.
+     *  2: batched custom shapes (patches/projectm/0001, 15-Nov-2026). */
+    static final int RENDERER_GENERATION = 2;
+    /** True when this start cleared learned picture sizes because the renderer changed. */
+    final boolean relearning;
+
     Settings(Context ctx) {
         prefs = ctx.getSharedPreferences("settings", Context.MODE_PRIVATE);
         durationSec = prefs.getInt("duration", 30);
@@ -43,6 +50,12 @@ final class Settings {
         skipHeavy = prefs.getBoolean("skipHeavy", true);
         skipDeaf = prefs.getBoolean("skipDeaf", true);
         tooSlow = ctx.getSharedPreferences("too_slow", Context.MODE_PRIVATE);
+        int generation = prefs.getInt("rendererGeneration", 1);
+        relearning = generation != RENDERER_GENERATION && (!learned.getAll().isEmpty() || !tooSlow.getAll().isEmpty());
+        if (generation != RENDERER_GENERATION) {
+            if (relearning) forgetLearned();
+            prefs.edit().putInt("rendererGeneration", RENDERER_GENERATION).apply();
+        }
         hidden = Collections.unmodifiableSet(new HashSet<>(prefs.getStringSet("hidden", Collections.emptySet())));
         disabledStyles = Collections.unmodifiableSet(
                 new HashSet<>(prefs.getStringSet("disabledStyles", Collections.emptySet())));

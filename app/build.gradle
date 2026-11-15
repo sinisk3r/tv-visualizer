@@ -31,12 +31,33 @@ android {
         }
     }
 
+    // Play uploads: `./gradlew bundleRelease -PplayUpload` signs with the upload key (one key for all the user's apps;
+    // Play App Signing holds the real app key). Its path and passwords come from ~/.gradle/gradle.properties, never
+    // from this repo: UPLOAD_KEYSTORE, UPLOAD_KEYSTORE_PASSWORD, UPLOAD_KEY_ALIAS, UPLOAD_KEY_PASSWORD.
+    // Without -PplayUpload, release builds keep the debug key, so `adb install -r` still updates the TV in place.
+    signingConfigs {
+        upload {
+            if (project.hasProperty('UPLOAD_KEYSTORE')) {
+                storeFile file(UPLOAD_KEYSTORE)
+                storePassword UPLOAD_KEYSTORE_PASSWORD
+                keyAlias UPLOAD_KEY_ALIAS
+                keyPassword UPLOAD_KEY_PASSWORD
+            }
+        }
+    }
+
     buildTypes {
         release {
             minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            // Sideloaded over ADB for now: signed with the debug key. Use a real key before publishing.
-            signingConfig signingConfigs.debug
+            if (project.hasProperty('playUpload')) {
+                if (!project.hasProperty('UPLOAD_KEYSTORE')) {
+                    throw new GradleException("-PplayUpload needs UPLOAD_KEYSTORE etc. in ~/.gradle/gradle.properties")
+                }
+                signingConfig signingConfigs.upload
+            } else {
+                signingConfig signingConfigs.debug
+            }
         }
     }
 

@@ -6,7 +6,8 @@ H=$1; shift
 for p in "$@"; do
   adb shell am force-stop $PKG
   adb logcat -c
-  adb shell am start -n $PKG/.MainActivity --es preset "'$p'" --ei height "$H" >/dev/null
+  q=$(printf "%s" "$p" | sed "s/'/'\\\\''/g")   # quote for the TV's shell: ' becomes '\''
+  adb shell am start -n $PKG/.MainActivity --es preset "'$q'" --ei height "$H" >/dev/null
   sleep 30
   echo "== $(basename "$p")"
   adb logcat -d -s Visualizer | sed -E "s/.*I Visualizer: //" | grep "^fps " | tail -n +2 | cut -c1-60

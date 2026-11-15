@@ -51,6 +51,8 @@ features, build and licences; this file covers how to work on it. Keep it under 
 - No projectM teardown in `onDestroy`: after `recreate()` the old GL thread could kill the new instance.
   `Native.create()` frees any previous instance.
 - Bump `versionCode` when the bundled assets change, or installed apps keep the old unpacked copy.
+- Raise `Settings.RENDERER_GENERATION` when a change makes presets faster or slower (a projectM patch, renderer
+  work): installed apps then forget learned picture sizes and the too-slow list, and measure again.
 - Auto picture must not count frames during a preset blend (3 s) or right after a load/resize (1.5 s).
 - Preset scanning is slow on TV storage (~1-2 s for 10k files): keep it off the main thread.
 - Hide views (GONE) when not shown: any visible view, even at alpha 0, makes the TV GPU compose the full

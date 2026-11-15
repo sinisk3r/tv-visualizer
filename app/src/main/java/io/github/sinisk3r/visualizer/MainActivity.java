@@ -60,6 +60,11 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
         hint = findViewById(R.id.hint);
         prefs = getSharedPreferences("state", MODE_PRIVATE);
         settings = new Settings(this);
+        if (settings.relearning) {
+            Log.i(TAG, "renderer updated: forgot learned picture sizes");
+            android.widget.Toast.makeText(this, "Updated: picture sizes will be measured again for this version.",
+                    android.widget.Toast.LENGTH_LONG).show();
+        }
         settings.logLearned();
         logDevice();
 
