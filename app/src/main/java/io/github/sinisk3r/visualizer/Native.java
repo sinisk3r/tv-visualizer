@@ -16,6 +16,8 @@ final class Native {
 
     static native boolean create(int width, int height, String textureDir, float presetSeconds);
     static native void resize(int width, int height);
+    /** The size projectM draws at, stretched onto the surface; 0, 0 means the surface size. */
+    static native void setInnerSize(int width, int height);
     /** smooth: blend from the current preset over blendSec seconds; otherwise cut. */
     static native void loadPreset(String path, boolean smooth, float blendSec);
     /** Compiles this preset's shaders on a background thread so a later loadPreset is quick. Any thread. */

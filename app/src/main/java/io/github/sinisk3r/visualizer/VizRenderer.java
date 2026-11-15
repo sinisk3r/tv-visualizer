@@ -59,6 +59,8 @@ final class VizRenderer implements GLSurfaceView.Renderer {
 
     /** Even 30 fps pacing allowed (off for speed tests: tools/tv-bench.sh measures the raw frame rate). */
     volatile boolean pacing = true;
+    /** Test hook: projectM draws at this height and is stretched onto the surface (0: the surface size). */
+    volatile int innerHeight;
     private boolean paced;  // swap interval 2 for the shown preset
 
     /** Set by the activity while it holds the audio capture; read every frame. */
@@ -183,6 +185,7 @@ final class VizRenderer implements GLSurfaceView.Renderer {
         settle(SETTLE_MS);
         if (ready) {
             Native.resize(width, height);
+            applyInnerSize();
             return;
         }
         if (!Native.create(width, height, textureDir, settings.durationSec())) {
@@ -190,6 +193,7 @@ final class VizRenderer implements GLSurfaceView.Renderer {
             return;
         }
         ready = true;
+        applyInnerSize();
         Native.setTiming(settings.durationSec(), settings.beatCuts());
         Native.setLocked(locked);
         File current = currentPreset();
@@ -303,6 +307,11 @@ final class VizRenderer implements GLSurfaceView.Renderer {
             case NONE:
                 break;
         }
+    }
+
+    private void applyInnerSize() {
+        int h = innerHeight;
+        Native.setInnerSize(h > 0 ? Settings.widthFor(h) : 0, h);
     }
 
     private void setPaced(boolean on) {

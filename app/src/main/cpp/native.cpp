@@ -116,13 +116,25 @@ Java_io_github_sinisk3r_visualizer_Native_warm(JNIEnv* env, jclass, jstring path
     env->ReleaseStringUTFChars(textureDir, t);
 }
 
+// Variable resolution: projectM can draw at an internal size below the surface's, into our own texture, which
+// render() then stretches onto the surface (patch 0003 adds projectm_opengl_render_frame_fbo). Same size: projectM
+// draws straight to the surface, at no extra cost.
+static int surfaceW, surfaceH, innerW, innerH;
+static GLuint innerFbo, innerTex;
+static int innerTexW, innerTexH;
+
+static void setProjectMSize();
 JNIEXPORT jboolean JNICALL
 Java_io_github_sinisk3r_visualizer_Native_create(JNIEnv* env, jclass, jint w, jint h, jstring textureDir,
                                        jfloat presetSeconds) {
     if (pm) projectm_destroy(pm);
     pm = projectm_create();
     if (!pm) { LOG("projectm_create failed (no GLES3 context?)"); return JNI_FALSE; }
-    projectm_set_window_size(pm, w, h);
+    innerFbo = innerTex = 0;  // a new GL context: the old objects are gone with it
+    innerTexW = innerTexH = 0;
+    surfaceW = w;
+    surfaceH = h;
+    setProjectMSize();
     projectm_set_fps(pm, 60);
     projectm_set_mesh_size(pm, 32, 24);
     projectm_set_aspect_correction(pm, true);
@@ -144,9 +156,48 @@ Java_io_github_sinisk3r_visualizer_Native_create(JNIEnv* env, jclass, jint w, ji
     return JNI_TRUE;
 }
 
+static void setProjectMSize() {
+    if (pm) projectm_set_window_size(pm, innerW > 0 ? innerW : surfaceW, innerH > 0 ? innerH : surfaceH);
+}
+
+static bool useInner() {
+    return innerW > 0 && innerH > 0 && (innerW != surfaceW || innerH != surfaceH);
+}
+
+static void ensureInnerTarget() {
+    if (innerFbo && innerTexW == innerW && innerTexH == innerH) return;
+    if (!innerFbo) { glGenFramebuffers(1, &innerFbo); glGenTextures(1, &innerTex); }
+    glBindTexture(GL_TEXTURE_2D, innerTex);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, innerW, innerH, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glBindFramebuffer(GL_FRAMEBUFFER, innerFbo);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, innerTex, 0);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    innerTexW = innerW;
+    innerTexH = innerH;
+}
+
+static void releaseInnerTarget() {
+    if (innerFbo) { glDeleteFramebuffers(1, &innerFbo); glDeleteTextures(1, &innerTex); }
+    innerFbo = innerTex = 0;
+    innerTexW = innerTexH = 0;
+}
+
 JNIEXPORT void JNICALL
 Java_io_github_sinisk3r_visualizer_Native_resize(JNIEnv*, jclass, jint w, jint h) {
-    if (pm) projectm_set_window_size(pm, w, h);
+    surfaceW = w;
+    surfaceH = h;
+    setProjectMSize();
+}
+
+// The size projectM draws at; 0 x 0 means the surface size.
+JNIEXPORT void JNICALL
+Java_io_github_sinisk3r_visualizer_Native_setInnerSize(JNIEnv*, jclass, jint w, jint h) {
+    if (w == innerW && h == innerH) return;
+    innerW = w;
+    innerH = h;
+    setProjectMSize();
 }
 
 JNIEXPORT void JNICALL
@@ -289,14 +340,28 @@ JNIEXPORT jint JNICALL
 Java_io_github_sinisk3r_visualizer_Native_render(JNIEnv*, jclass) {
     if (!pm) return 0;
     glClearColor(0, 0, 0, 1);
+    if (!useInner()) {
+        glClear(GL_COLOR_BUFFER_BIT);
+        projectm_opengl_render_frame(pm);
+        return events.exchange(0);
+    }
+    ensureInnerTarget();
+    glBindFramebuffer(GL_FRAMEBUFFER, innerFbo);
+    glViewport(0, 0, innerW, innerH);
     glClear(GL_COLOR_BUFFER_BIT);
-    projectm_opengl_render_frame(pm);
+    projectm_opengl_render_frame_fbo(pm, innerFbo);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, innerFbo);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+    glBlitFramebuffer(0, 0, innerW, innerH, 0, 0, surfaceW, surfaceH, GL_COLOR_BUFFER_BIT, GL_LINEAR);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glViewport(0, 0, surfaceW, surfaceH);
     return events.exchange(0);
 }
 
 JNIEXPORT void JNICALL
 Java_io_github_sinisk3r_visualizer_Native_destroy(JNIEnv*, jclass) {
     if (pm) { projectm_destroy(pm); pm = nullptr; }
+    releaseInnerTarget();
 }
 
 }  // extern "C"

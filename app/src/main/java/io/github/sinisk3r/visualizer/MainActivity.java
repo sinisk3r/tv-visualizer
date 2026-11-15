@@ -107,6 +107,7 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
                 testPreset != null ? testPreset : prefs.getString("preset", null),
                 testPreset != null || prefs.getBoolean("locked", false));
         renderer.pacing = getIntent().getBooleanExtra("pace", true);  // test hook: --ez pace false
+        renderer.innerHeight = getIntent().getIntExtra("inner", 0);    // test hook: --ei inner 480
         menu = new MenuPanel(this, settings, library, this);
 
         glView = new GLSurfaceView(this);

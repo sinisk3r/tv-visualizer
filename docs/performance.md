@@ -72,3 +72,20 @@ the fix: 1,000+ unbatched ran 10-12 fps, 200-300 ran 29-31 fps, 100 or fewer 39-
 - Coarser per-pixel mesh (15-Nov-2026), 16x12 vs 32x24 at 480p: phlegmployant 27.4 to 30.1 fps, ants on acid
   40.5 to 41.8, interference pattern 2 39.1 to 39.3. Helps only presets whose per-pixel equations load the CPU;
   not adopted yet (image cost not judged).
+
+## Variable resolution, step 1 (15-Nov-2026)
+
+Patch 0003 (backport of upstream `bd2b1ba9f`) lets projectM draw into our own texture at any size; `native.cpp`
+stretches it onto the surface with `glBlitFramebuffer` (linear). TV, Mali-G52, fps (pacing off):
+
+| | ants on acid | green machine | interference 2 |
+|---|---|---|---|
+| 480p surface, direct (today) | 41.8 | 54.7 | 39.4 |
+| 480p inside, 1080p surface | 39.8 | 54.7 | 35.2 |
+| 480p inside, 720p surface | 42.3 | | 37.4 |
+| 540p inside, 720p surface | 36.0 | | 30.7 |
+
+The stretch onto a 720p surface costs at most ~5%; onto 1080p up to ~11%. Plan: a 720p surface with the inner
+size free below it, 1080p surface only for presets that run there. Next: keep the picture when the inner size
+changes (projectM recreates its textures empty, so trails reset), then size steps every ~0.5 s.
+
