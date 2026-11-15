@@ -14,6 +14,9 @@ Play developer account, Decided: free public app, stays open source.
 ```
 Read CLAUDE.md and docs/next.md item P. Goal: a Play Store build that passes review for Android TV.
 1-3. Done (target SDK, About page, masked names).
+Drafts done: `docs/privacy.md` (policy URL is its GitHub page), `docs/store/listing.md`, six 1920x1080
+screenshots in `docs/store/screenshots` (taken on the TV; let the user pick). Still needed: feature graphic
+1024x500, and screenshots of the new menu after B.
 4. Privacy policy page (GitHub Pages): audio is analysed on the device, never stored or sent. Data safety form.
 5. Store assets: 1920x1080 TV screenshots, banner, feature graphic, listing text (no "MilkDrop"/"Winamp").
 6. `./gradlew bundleRelease -PplayUpload`, upload to a closed test track (new personal accounts: 12+ testers for
