@@ -18,3 +18,8 @@ add_executable(mac-render render.cpp)
 target_include_directories(mac-render PRIVATE ${PROJECTM_DIR}/vendor/SOIL2)
 target_compile_definitions(mac-render PRIVATE GL_SILENCE_DEPRECATION)
 target_link_libraries(mac-render PRIVATE libprojectM::projectM SDL2::SDL2 "-framework OpenGL")
+
+# Checks patch 0004 (the picture survives a size change).
+add_executable(resize-check resize-check.cpp)
+target_compile_definitions(resize-check PRIVATE GL_SILENCE_DEPRECATION)
+target_link_libraries(resize-check PRIVATE libprojectM::projectM SDL2::SDL2 "-framework OpenGL")
