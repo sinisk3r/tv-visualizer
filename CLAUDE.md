@@ -28,6 +28,17 @@ features, build and licences; this file covers how to work on it. Keep it under 
   are logged at start: `adb logcat -s Visualizer | grep learned`).
 - After editing `CMakeLists.txt`, `rm -rf app/.cxx`: a reconfigure leaves projectM's `version.h` empty.
 
+## Testing off the TV (the TV is often busy)
+- Test on the Mac first, the TV last. The TV result is the only one that counts for speed.
+- Speed: a native macOS projectM harness (build it if missing) that renders presets offscreen and reports CPU
+  ms/frame, draw calls and buffer updates. Counts are the same on any machine; timings are not.
+- Device profiles ("this TV", "weaker TV"): don't emulate them. Calibrate instead: run the same presets on the Mac
+  and on the TV (learned heights and fps logs), fit Mac ms to TV fps, then predict. Re-check on the TV.
+- Parallel ideas: one git worktree each. Run count checks in parallel; run timings one at a time, since
+  parallel runs share CPU and skew each other.
+- UI and themes: HTML mockups at 1920x1080 first, then the Android TV emulator (AVD `tv34`, Google TV, API 34,
+  same Android as the TV) for layout and focus. The emulator draws on the Mac GPU: never use it for fps.
+
 ## Rules learned the hard way
 - Never move or scale views over the GLSurfaceView (slide-ins, focus zoom): composition clips them. Fade only.
 - Make a view VISIBLE before requesting focus in it; a hidden view cannot take focus and keys fall to the visuals.
