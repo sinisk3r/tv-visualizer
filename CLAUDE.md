@@ -6,9 +6,11 @@ features, build and licences; this file covers how to work on it. Keep it under 
 ## Layout
 - `app/src/main/java/io/github/sinisk3r/visualizer/`
   - `MainActivity`: keys, audio capture (`Visualizer` session 0), overlay, starts visuals after the preset scan.
-  - `VizRenderer`: GL thread. Play order, style filters, Auto picture, fps log. Reached only via `queueEvent`.
-  - `MenuPanel`: the OK menu: transport bar + cards (settings, live and advanced, find, about). Built once
-    (Find rows once per page); `refresh()`/`tick()` only rewrite values. `BarText`: its texts, with tests.
+  - `VizRenderer`: GL thread. Shows what `PlayOrder` picks; Auto picture (`ResolutionController`), pacing,
+    fps log. Reached only via `queueEvent`.
+  - `MenuPanel`: the OK menu: transport bar + cards; `SearchPanel`, `FindPanel` (lists, preview), `ZeroPanel`
+    (0 pressed). Rows built once; `refresh()`/`tick()` only rewrite values. Logic in tested plain classes
+    (`BarText`, `SearchIndex`, `Keypad`, `ZeroEntry`, `SmartLists`, `WatchHistory`).
   - `PresetLibrary` (scan, styles, sub-styles), `PackDownloader` (full pack), `Settings` (prefs), `Native` (JNI).
 - `app/src/main/cpp/native.cpp`: one global projectM instance; callbacks return as bit flags from `render()`.
 - `tools/`: `fetch-packs.sh`, `make-bundle.py` (bundled presets), `make-heavy-list.py` (assets/heavy.txt),
