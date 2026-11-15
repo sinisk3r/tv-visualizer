@@ -58,6 +58,7 @@ final class PresetLibrary {
 
         File user = PackDownloader.userPresetDir(ctx);
         hasFullPack = PackDownloader.isInstalled(ctx);
+        loadFixes(new File(root, "fixes"));
         if (user != null) scan(user, all);
         scan(new File(root, "presets"), all);
         categories.add(ALL);
@@ -137,8 +138,19 @@ final class PresetLibrary {
         }
     }
 
+    /** Fixed copies of presets that fail to parse in projectM 4 (assets/fixes, from Cream of the Crop pull request
+     *  #7; patches/presets). They replace the broken copy wherever the preset is found. File name to file. */
+    private final Map<String, File> fixes = new HashMap<>();
+
+    private void loadFixes(File dir) {
+        File[] files = dir.listFiles();
+        if (files != null) for (File f : files) fixes.put(f.getName(), f);
+    }
+
     private void add(String style, String sub, File f, List<File> all) {
         if (!seen.add(f.getName())) return;  // already found in an earlier source
+        File fixed = fixes.get(f.getName());
+        if (fixed != null) f = fixed;
         byCategory.computeIfAbsent(style, k -> new ArrayList<>()).add(f);
         subs.computeIfAbsent(style, k -> new TreeMap<>(String.CASE_INSENSITIVE_ORDER))
                 .computeIfAbsent(sub, k -> new ArrayList<>()).add(f);
@@ -178,6 +190,7 @@ final class PresetLibrary {
         AssetManager am = ctx.getAssets();
         copyTree(am, "presets", new File(root, "presets"));
         copyTree(am, "textures", new File(root, "textures"));
+        copyTree(am, "fixes", new File(root, "fixes"));
         prefs.edit().putLong("version", version).apply();
     }
 
