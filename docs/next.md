@@ -271,6 +271,11 @@ and ask the user first.
   hardware (CPU and GPU are logged at start as `device ...` and in the projectM line).
 
 ## Done
+- 15-Nov-2026: settled with the user: Shuffle stays on by default; picking a set under Everything asks on
+  screen; 0 then OK plays 01; mute dropped for a scrubber. Preset 5337 (fiShbRaiN - swarming glory): it reacts
+  only when bass_att > 1.2 (bass 20% over its own recent average), so it goes quiet in steady loud parts; checked
+  on the TV, 1 lit frame in 8 s. The preset, not our audio path. Still to ask: "New to you" = under 60 s watched?
+  Favourites past 99 cannot be typed. Where "playlist not available" appears (no such text in the app).
 - 15-Nov-2026: user decisions built (`menu-fixes`): the menu closes itself when idle (10 s bar, 30 s card;
   `MenuIdle`), music card scrubber replaces mute (seek +-10 s, 30 s when held; needs notification access),
   "Shuffle this one only? OK" after picking a set under Everything (`ShuffleAsk`, `PlayOrder.narrowToSet`), 0 then
