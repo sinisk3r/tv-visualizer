@@ -507,11 +507,28 @@ final class SearchPanel {
 
     // --- voice ---
 
-    private static Intent speechIntent() {
-        return new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+    /** Google TV's own voice input: works on TVs, unlike "Speech Services by Google" (com.google.android.tts),
+     *  which also answers the intent, shows a picker and then fails on this TV. */
+    static final String TV_VOICE = "com.google.android.katniss";
+
+    /** Which app to send the speech intent to: Google TV's voice input when present (this also skips a default
+     *  the user may have set to a handler that does not work), else null (let Android choose). */
+    static String pickSpeechPackage(java.util.List<String> handlers) {
+        return handlers.contains(TV_VOICE) ? TV_VOICE : null;
+    }
+
+    private Intent speechIntent() {
+        Intent i = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
                 .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
                 .putExtra(RecognizerIntent.EXTRA_PROMPT, "Say a preset name")
                 .putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1);
+        java.util.List<String> handlers = new java.util.ArrayList<>();
+        for (android.content.pm.ResolveInfo r : act.getPackageManager().queryIntentActivities(i, 0)) {
+            handlers.add(r.activityInfo.packageName);
+        }
+        String pkg = pickSpeechPackage(handlers);
+        if (pkg != null) i.setPackage(pkg);
+        return i;
     }
 
     private void listen() {
