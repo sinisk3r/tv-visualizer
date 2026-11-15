@@ -7,17 +7,13 @@ Read `CLAUDE.md` first, especially "Testing off the TV".
 ## P. Play Store release (free public app, open source; the user's next priority, 15-Nov-2026)
 
 Done: upload-key signing in Gradle (`-PplayUpload`, keys in ~/.gradle/gradle.properties), relearning after
-renderer updates. Waiting on the user: create the upload key (keytool command in the session notes / below), the
+renderer updates, About and licences page (`3f5ec7e`), swear words masked in preset names. Target SDK 34 meets
+Play's rule for TV apps (checked 15-Nov-2026; phones would need 35/36, so list it for TV only). Waiting on the user: create the upload key (keytool command in the session notes / below), the
 Play developer account, Decided: free public app, stays open source.
 
 ```
 Read CLAUDE.md and docs/next.md item P. Goal: a Play Store build that passes review for Android TV.
-1. Target SDK: check Play's current target API rule and raise targetSdk/compileSdk; test on the emulator (tv34)
-   and the TV.
-2. About / licences screen in the menu: projectM LGPL-2.1 notice and source link (with patches/projectm), preset
-   credits (Cream of the Crop authors), app licence MIT, "AI-generated" logo credit.
-3. Preset names: some are crude (e.g. "... i fucking HATE ..."). Clean names for display (a word filter or a
-   rename list) so the content rating stays "Everyone"; keep file names.
+1-3. Done (target SDK, About page, masked names).
 4. Privacy policy page (GitHub Pages): audio is analysed on the device, never stored or sent. Data safety form.
 5. Store assets: 1920x1080 TV screenshots, banner, feature graphic, listing text (no "MilkDrop"/"Winamp").
 6. `./gradlew bundleRelease -PplayUpload`, upload to a closed test track (new personal accounts: 12+ testers for
@@ -76,6 +72,7 @@ licence (e.g. OFL pixel fonts), with the licence noted in README.
   `android.hardware.microphone`. Test whether an app can open it (AudioRecord, VOICE_RECOGNITION source) while
   "Hey Google" is idle. If yes: a "Listen to the room" option for music from another speaker. Ask the user first.
 - **Upstream 0002:** offer `patches/projectm/0002` (non-additive borders as quads) upstream after #1044 merges.
+- **Name box under the menu:** the preset name box shows through behind the menu's bottom rows. Fix in B.
 - **Menu cost:** any visible view makes the TV compose 4K on the GPU (60 to ~40 fps with the menu open), whatever
   its transparency. Drawing the menu inside the GL surface would avoid it; consider in the redesign (B).
 - **Preset fixes upstream:** Cream of the Crop PR #7 (open) fixes expression parse errors in 67 presets. Check how
