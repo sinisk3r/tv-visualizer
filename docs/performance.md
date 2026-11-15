@@ -62,3 +62,10 @@ unchanged (green machine 51.0, interference 39.1, splash 40.1). What is left: bo
 shapes, and the per-instance equations on the CPU. `heavy.txt` now lists presets by unbatched instances (non-additive shapes with a border) instead of all
 instances: 197 presets at 500+, down from 1,654 at 200+ instances in all. From 23 presets measured at 480p after
 the fix: 1,000+ unbatched ran 10-12 fps, 200-300 ran 29-31 fps, 100 or fewer 39-60 fps.
+
+## Tried and dropped
+
+- CPU performance hints (15-Nov-2026): a `PerformanceHintManager` session on the GL thread, 16.7 ms target,
+  reporting each frame's work. 480p bench set, hints off / on: ants 40.5 / 40.6, phlegmployant 27.4 / 27.7,
+  green machine 51.5 / 51.2, interference 39.1 / 39.1, splash 40.1 / 40.2 fps. No gain: frames wait on the GPU,
+  not the CPU clock.

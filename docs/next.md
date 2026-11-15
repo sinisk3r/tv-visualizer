@@ -57,8 +57,8 @@ access).
 Ideas in order of felt gain per effort:
 1. Even frame pacing: when a preset cannot hold ~55 fps, lock to an even 30 (swap interval 2) instead of a
    wobbly 40-50. Auto must then not read 30 fps as "too slow".
-2. CPU performance hints (PerformanceHintManager, the TV's HAL supports it): in progress, A/B with
-   `HINTS=false tools/tv-bench.sh 480`.
+2. ~~CPU performance hints~~ tried 15-Nov-2026, dropped: PerformanceHintManager session (16.7 ms target) made
+   no difference on the bench set (each preset within 0.3 fps of hints off). The TV is GPU-bound at 480p.
 3. Right size from the first frame: predict a new preset's size from its features (unbatched shapes, wave samples,
    shader length, blur) instead of a guess corrected after ~3 s.
 4. True dynamic resolution: render projectM into an internal picture of any size and upscale it ourselves, in
