@@ -22,7 +22,8 @@ import java.io.File;
 
 /**
  * Full-screen MilkDrop visuals that follow whatever the device is playing (Spotify, YouTube, ...).
- * Remote: Left/Right = previous/next preset, Up/Down = style (category), OK = menu (MenuPanel).
+ * Remote: Left/Right = previous/next preset, Up/Down = style (category), 0-9 = channel number, OK = the transport
+ * bar (MenuPanel). A now-playing tag shows top right on every preset change ("Show what's playing").
  */
 public class MainActivity extends Activity implements VizRenderer.Listener, MenuPanel.Host {
     private static final String TAG = "Visualizer";
@@ -31,8 +32,28 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
 
     private GLSurfaceView glView;
     private VizRenderer renderer;
-    private TextView title, subtitle, hint;
+    private TextView title, subtitle, hint, fpsReadout;
     private View overlay;
+    /** Frame rate of the visuals, for the settings card and "Show frame rate". */
+    private final FpsMeter fpsMeter = new FpsMeter();
+    private volatile int pictureHeight;
+    private volatile String shownCategory = PresetLibrary.ALL;
+    private volatile long shownAt = android.os.SystemClock.uptimeMillis();
+    /** The preset the tag last showed, so a settings refresh of the same preset does not show it again. */
+    private File taggedPreset;
+    /** Once a second while the bar or the frame rate readout is up: clock, progress, fps. */
+    private final Runnable tick = new Runnable() {
+        @Override
+        public void run() {
+            if (menu != null) menu.tick();
+            if (settings.showFps() && fpsReadout != null) {
+                String s = BarText.fps(fpsMeter.fps(), pictureHeight);
+                if (!s.contentEquals(fpsReadout.getText())) fpsReadout.setText(s);
+            }
+            ui.removeCallbacks(this);
+            if ((menu != null && menu.isOpen()) || settings.showFps()) ui.postDelayed(this, 1000);
+        }
+    };
     private Visualizer audio;
     private SharedPreferences prefs;
     private Settings settings;
@@ -58,6 +79,7 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
         title = findViewById(R.id.title);
         subtitle = findViewById(R.id.subtitle);
         hint = findViewById(R.id.hint);
+        fpsReadout = findViewById(R.id.fps_readout);
         prefs = getSharedPreferences("state", MODE_PRIVATE);
         settings = new Settings(this);
         if (settings.relearning) {
@@ -118,18 +140,66 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
         // and slow TV GPUs keep a smooth frame rate. Menu > Picture: Auto (learned per preset) or 480p to 1080p.
         int h = settings.isAuto() ? 720 : settings.renderHeight();  // Auto: each preset then asks for its own
         glView.getHolder().setFixedSize(Settings.widthFor(h), h);
-        glView.setRenderer(renderer);
+        glView.setRenderer(new CountingRenderer(renderer));
         glView.setOnClickListener(v -> glView.queueEvent(() -> renderer.step(1, true, true)));
         glView.setOnLongClickListener(v -> {
-            menu.open();
-            updateCovered();
+            openMenu();
             return true;
         });
         ViewGroup stage = findViewById(R.id.stage);
         stage.addView(glView, 0, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT));
         glView.requestFocus();
+        displayChanged();
         if (isResumedNow) startAudio();
+    }
+
+    /** The renderer, plus a frame count for the live frame rate. Counting here leaves VizRenderer alone. */
+    private final class CountingRenderer implements GLSurfaceView.Renderer {
+        private final VizRenderer inner;
+
+        CountingRenderer(VizRenderer inner) {
+            this.inner = inner;
+        }
+
+        @Override
+        public void onSurfaceCreated(javax.microedition.khronos.opengles.GL10 gl,
+                                     javax.microedition.khronos.egl.EGLConfig config) {
+            inner.onSurfaceCreated(gl, config);
+        }
+
+        @Override
+        public void onSurfaceChanged(javax.microedition.khronos.opengles.GL10 gl, int width, int height) {
+            pictureHeight = height;
+            fpsMeter.reset();
+            inner.onSurfaceChanged(gl, width, height);
+        }
+
+        @Override
+        public void onDrawFrame(javax.microedition.khronos.opengles.GL10 gl) {
+            inner.onDrawFrame(gl);
+            fpsMeter.frame(android.os.SystemClock.uptimeMillis());
+        }
+    }
+
+    private void openMenu() {
+        // The tag would repeat what the bar shows.
+        overlay.animate().cancel();
+        ui.removeCallbacks(hideOverlay);
+        overlay.setVisibility(View.GONE);
+        // Focus must stay in the menu: the full-screen GL view would otherwise take it from the edges.
+        glView.setFocusable(false);
+        menu.open();
+        updateCovered();
+        ui.removeCallbacks(tick);
+        ui.post(tick);
+    }
+
+    private void closeMenu() {
+        menu.close();
+        updateCovered();
+        glView.setFocusable(true);
+        glView.requestFocus();
     }
 
     private boolean isResumedNow;
@@ -212,13 +282,17 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
         if (menu.isOpen()) {
             if (keyCode == KeyEvent.KEYCODE_BACK || keyCode == KeyEvent.KEYCODE_MENU) {
                 if (event.getAction() == KeyEvent.ACTION_UP && (keyCode == KeyEvent.KEYCODE_MENU || !menu.back())) {
-                    menu.close();
-                    updateCovered();
-                    glView.requestFocus();
+                    closeMenu();
                 }
                 return true;
             }
-            return super.dispatchKeyEvent(event);  // focus moves between menu rows
+            // Previous and next are not on the bar: the remote's media keys still do them.
+            if (keyCode == KeyEvent.KEYCODE_MEDIA_FAST_FORWARD || keyCode == KeyEvent.KEYCODE_MEDIA_REWIND) {
+                if (event.getAction() == KeyEvent.ACTION_DOWN) handleKey(keyCode);
+                return true;
+            }
+            if (menu.handleKey(event)) return true;
+            return super.dispatchKeyEvent(event);  // focus moves between the bar and the cards
         }
         if (event.getAction() == KeyEvent.ACTION_DOWN && handleKey(keyCode)) return true;
         if (event.getAction() == KeyEvent.ACTION_UP && isOurKey(keyCode)) return true;
@@ -303,8 +377,7 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
             case KeyEvent.KEYCODE_ENTER:
             case KeyEvent.KEYCODE_NUMPAD_ENTER:
             case KeyEvent.KEYCODE_MENU:
-                menu.open();
-                updateCovered();
+                openMenu();
                 return true;
             case KeyEvent.KEYCODE_INFO:
                 showOverlay(true);
@@ -328,10 +401,20 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
                 .apply();
         String preset = p == null ? "" : library.title(p);
         ui.post(() -> {
+            boolean changed = p != null && !p.equals(taggedPreset);
+            if (changed || p == null) shownAt = android.os.SystemClock.uptimeMillis();
+            shownCategory = category;
             menu.refresh();
+            menu.tick();
+            if (typed.isActive()) return;  // the tag shows the number being typed
             title.setText(preset);
-            subtitle.setText(getString(locked ? R.string.subtitle_locked : R.string.subtitle, category));
-            if (userAction || firstOverlay) showOverlay(userAction);
+            subtitle.setText(p == null ? category : BarText.styleLine(library.styleOf(p), library.subStyleOf(p),
+                    category, locked, settings.shuffle()));
+            // On every change, automatic ones too ("Show what's playing"); otherwise only on key presses.
+            if (!menu.isOpen() && (userAction || firstOverlay || (changed && settings.showPlaying()))) {
+                showOverlay(userAction);
+            }
+            taggedPreset = p;
         });
     }
 
@@ -344,6 +427,7 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
         overlay.animate().cancel();
         overlay.setVisibility(View.VISIBLE);
         overlay.setAlpha(1f);
+        title.setSelected(true);  // a long name scrolls while the tag is up
         ui.removeCallbacks(hideOverlay);
         ui.postDelayed(hideOverlay, OVERLAY_MS);
         updateCovered();
@@ -352,7 +436,8 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
     /** Tells Auto picture whether anything is drawn over the visuals (see VizRenderer.covered). */
     private void updateCovered() {
         if (renderer != null) {
-            renderer.covered = overlay.getVisibility() == View.VISIBLE || (menu != null && menu.isOpen());
+            renderer.covered = overlay.getVisibility() == View.VISIBLE || (menu != null && menu.isOpen())
+                    || fpsReadout.getVisibility() == View.VISIBLE;
         }
     }
 
@@ -379,6 +464,39 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
     @Override
     public boolean isLocked() {
         return shownLocked;
+    }
+
+    @Override
+    public void step(int delta) {
+        glView.queueEvent(() -> renderer.step(delta, true, true));
+    }
+
+    @Override
+    public String category() {
+        return shownCategory;
+    }
+
+    @Override
+    public long shownAt() {
+        return shownAt;
+    }
+
+    @Override
+    public float fps() {
+        return fpsMeter.fps();
+    }
+
+    @Override
+    public int pictureHeight() {
+        return pictureHeight;
+    }
+
+    @Override
+    public void displayChanged() {
+        fpsReadout.setVisibility(settings.showFps() ? View.VISIBLE : View.GONE);
+        updateCovered();
+        ui.removeCallbacks(tick);
+        ui.post(tick);
     }
 
     @Override
