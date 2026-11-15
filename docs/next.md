@@ -137,9 +137,9 @@ TV. Fix the name box showing under the menu. Update README and CLAUDE.md. Commit
 
 Started 15-Nov-2026: JVM tests for Settings and preset names (Robolectric), Python checks for the asset lists
 (numbers never move, bundle has no deaf or heavy presets), CI on every push. Next, in order:
-1. Pull logic out of MainActivity/VizRenderer into plain classes with tests: channel-number entry (digits,
-   timeout, OK, 0 / 00 prefixes), the play order (weighted shuffle, filters, held start preset, `play()`
-   slotting), Auto picture and pacing decisions (feed fps windows, check the size or pacing chosen).
+1. Pull logic out of MainActivity/VizRenderer into plain classes with tests: ~~channel-number entry~~
+   (`ChannelEntry`, done), ~~Auto picture and pacing decisions~~ (`FrameRatePolicy`, done, checked on the TV),
+   next the play order (weighted shuffle, filters, held start preset, `play()` slotting).
 2. Song and drop detection (`detectSong` in native.cpp) as a host C++ test fed with recorded RMS curves.
 3. UI tests for the new menu (B) on the emulator (AVD tv34, Espresso): focus order, keys, no row rebuilds.
 4. TV checks stay manual but scripted: `tools/tv-bench.sh` before/after any renderer change.

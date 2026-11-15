@@ -34,14 +34,7 @@ final class VizRenderer implements GLSurfaceView.Renderer {
     private boolean switchAfterGrace;
     private static final long SETTLE_MS = 1500;      // after a load or resize
     private static final long WINDOW_MS = 3000;      // one measurement
-    private static final float FAST_FPS = 55f;       // at or above this the GPU has room
-    private static final long PROBE_AFTER_MS = 10_000; // smooth this long at a lowered size: try one step up
-    private static final float TOO_SLOW_FPS = 20f;   // below this at the lowest size: the preset is too heavy here
-    /** A preset that settles between these cannot hold 60: show an even 30 (every second vsync) instead of a
-     *  wobbly 35-45, where frames last one or two vsyncs at random and motion judders. */
-    private static final float PACE_MIN_FPS = 31f;
-    private static final float PACE_MAX_FPS = 46f;
-    private static final float PACED_LOST_FPS = 27f; // paced but below this: it cannot even hold 30, stop pacing
+    private final FrameRatePolicy policy = new FrameRatePolicy();
 
     interface Listener {
         /** Called on the GL thread whenever the shown preset, style or hold changes. */
@@ -90,7 +83,6 @@ final class VizRenderer implements GLSurfaceView.Renderer {
     private long measureFrom;   // uptime ms; frames before this are not counted
     private long windowStart;
     private int windowFrames;
-    private long smoothSince;   // start of an unbroken run of fast windows, 0 if none
     /** Presets that already tried a step up this session, so a borderline one cannot flip back and forth. */
     private final Set<String> probed = new HashSet<>();
 
@@ -254,7 +246,7 @@ final class VizRenderer implements GLSurfaceView.Renderer {
     private void settle(long ms) {
         measureFrom = SystemClock.uptimeMillis() + ms;
         windowStart = 0;
-        smoothSince = 0;
+        policy.reset();
     }
 
     /** Measures the frame rate in 3 s windows once a preset has settled; Auto picture and pacing act on it. */
@@ -278,18 +270,38 @@ final class VizRenderer implements GLSurfaceView.Renderer {
         windowStart = now;
         windowFrames = 0;
         String name = p.getName();
-        if (paced) {
-            if (fps < PACED_LOST_FPS) {
+        FrameRatePolicy.Decision d = policy.decide(fps, now, surfaceHeight, settings.isAuto(), settings.autoSlowFps(),
+                pacing, paced, probed.contains(name));
+        switch (d.kind) {
+            case PACE_OFF:
                 Log.i(TAG, String.format("pace: %.0f fps, cannot hold 30, pacing off: %s", fps, name));
                 setPaced(false);
                 settle(SETTLE_MS);
-            }
-            return;
-        }
-        if (settings.isAuto() && autoPicture(fps, now, name)) return;
-        if (pacing && fps >= PACE_MIN_FPS && fps < PACE_MAX_FPS) {
-            Log.i(TAG, String.format("pace: %.0f fps at %dp, even 30: %s", fps, surfaceHeight, name));
-            setPaced(true);
+                break;
+            case TOO_SLOW:
+                // Already at the smallest picture: the cost is not in pixels (usually hundreds of custom shapes
+                // worked out on the CPU), so a smaller picture cannot help. Remember it for "Skip heavy presets".
+                Log.i(TAG, String.format("auto: %.0f fps at %dp, too slow: %s", fps, surfaceHeight, name));
+                settings.markTooSlow(name, fps);
+                if (settings.skipHeavy() && !locked) dropCurrent(true);
+                break;
+            case DOWN:
+                Log.i(TAG, String.format("auto: %.0f fps at %dp, down to %dp: %s", fps, surfaceHeight, d.height, name));
+                settings.learn(name, d.height);
+                want(d.height);
+                break;
+            case UP:
+                Log.i(TAG, String.format("auto: %.0f fps at %dp, trying %dp: %s", fps, surfaceHeight, d.height, name));
+                probed.add(name);
+                settings.learn(name, d.height);
+                want(d.height);
+                break;
+            case PACE_ON:
+                Log.i(TAG, String.format("pace: %.0f fps at %dp, even 30: %s", fps, surfaceHeight, name));
+                setPaced(true);
+                break;
+            case NONE:
+                break;
         }
     }
 
@@ -298,38 +310,6 @@ final class VizRenderer implements GLSurfaceView.Renderer {
         paced = on;
         // Not eglSwapInterval(2): this TV ignores it. The activity draws on demand every second vsync instead.
         listener.onPaced(on);
-    }
-
-    /** Auto picture: one step down when too slow, one step up after a long fast run. True when it acted. */
-    private boolean autoPicture(float fps, long now, String name) {
-        if (fps < TOO_SLOW_FPS && surfaceHeight <= Settings.HEIGHTS[0]) {
-            // Already at the smallest picture: the cost is not in pixels (usually hundreds of custom shapes
-            // worked out on the CPU), so a smaller picture cannot help. Remember it for "Skip heavy presets".
-            Log.i(TAG, String.format("auto: %.0f fps at %dp, too slow: %s", fps, surfaceHeight, name));
-            settings.markTooSlow(name, fps);
-            if (settings.skipHeavy() && !locked) dropCurrent(true);
-            return true;
-        }
-        if (fps < settings.autoSlowFps() && surfaceHeight > Settings.HEIGHTS[0]) {
-            int down = Settings.lower(surfaceHeight);
-            Log.i(TAG, String.format("auto: %.0f fps at %dp, down to %dp: %s", fps, surfaceHeight, down, name));
-            settings.learn(name, down);
-            want(down);
-            return true;
-        } else if (fps >= FAST_FPS && surfaceHeight < 1080 && !probed.contains(name)) {
-            if (smoothSince == 0) smoothSince = now;
-            if (now - smoothSince >= PROBE_AFTER_MS) {
-                int up = Settings.higher(surfaceHeight);
-                Log.i(TAG, String.format("auto: %.0f fps at %dp, trying %dp: %s", fps, surfaceHeight, up, name));
-                probed.add(name);
-                settings.learn(name, up);
-                want(up);
-                return true;
-            }
-        } else {
-            smoothSince = 0;
-        }
-        return false;
     }
 
     private void want(int height) {
