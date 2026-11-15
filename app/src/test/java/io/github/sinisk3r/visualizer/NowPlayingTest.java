@@ -147,4 +147,37 @@ public class NowPlayingTest {
         assertEquals("1:02:03", NowPlaying.time(3_723_000));
         assertEquals("0:00", NowPlaying.time(-5));
     }
+
+    @Test
+    public void pausedTimeSaysSo() {
+        assertEquals("2:21", NowPlaying.elapsedLabel(141_000, false));
+        assertEquals("Paused · 2:21", NowPlaying.elapsedLabel(141_000, true));
+        assertEquals("OK pause · ◀ ▶ 10 s · ▲ previous / next", NowPlaying.scrubHint(false));
+        assertTrue(NowPlaying.scrubHint(true).startsWith("OK play ·"));
+    }
+
+    @Test
+    public void thumbSitsAtThePlayheadInsideTheTrack() {
+        assertEquals(10f, NowPlaying.thumbX(0, 10, 210), 0.001f);
+        assertEquals(110f, NowPlaying.thumbX(500, 10, 210), 0.001f);
+        assertEquals(210f, NowPlaying.thumbX(1000, 10, 210), 0.001f);
+        assertEquals("clamped", 210f, NowPlaying.thumbX(1200, 10, 210), 0.001f);
+        assertEquals("clamped", 10f, NowPlaying.thumbX(-5, 10, 210), 0.001f);
+    }
+
+    @Test
+    public void seekPillCentresOnTheThumbButStaysInside() {
+        assertEquals(80f, NowPlaying.pillLeft(100, 40, 0, 220), 0.001f);
+        assertEquals("left end", 0f, NowPlaying.pillLeft(5, 40, 0, 220), 0.001f);
+        assertEquals("right end", 180f, NowPlaying.pillLeft(215, 40, 0, 220), 0.001f);
+    }
+
+    @Test
+    public void scrubberShowsForAPlayingOrPausedSessionOrOneThatSeeks() {
+        assertTrue(NowPlaying.showScrubber(PlaybackState.STATE_PLAYING, 0, 0));
+        assertTrue(NowPlaying.showScrubber(PlaybackState.STATE_PAUSED, 0, 0));
+        assertTrue(NowPlaying.showScrubber(PlaybackState.STATE_STOPPED, NowPlaying.ACTION_SEEK_TO, 200_000));
+        assertFalse("a Bluetooth session in error", NowPlaying.showScrubber(PlaybackState.STATE_ERROR, 0, 0));
+        assertFalse(NowPlaying.showScrubber(PlaybackState.STATE_NONE, NowPlaying.ACTION_SEEK_TO, 0));
+    }
 }

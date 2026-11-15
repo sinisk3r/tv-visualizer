@@ -2,11 +2,11 @@ package io.github.sinisk3r.visualizer;
 
 /**
  * The music card's logic, kept free of views and media sessions so it can be tested on the JVM: which app's
- * session to show, what its playback state means for the play/pause button, the card's text, and the scrubber's
+ * session to show, what its playback state means for the scrubber, the card's text, and the scrubber's
  * time maths (position, seek steps, clamping, formatting).
  */
 final class NowPlaying {
-    /** What the play/pause button shows: STOPPED and PAUSED show Play, PLAYING shows Pause. */
+    /** The scrubber's mark: PLAYING shows the play mark; STOPPED and PAUSED the pause mark and "Paused". */
     static final int STOPPED = 0, PAUSED = 1, PLAYING = 2;
 
     private NowPlaying() {
@@ -85,7 +85,16 @@ final class NowPlaying {
     /** Steps this soon after the last seek build on its target, not on the app's position (which lags). */
     static final long SEEK_CHAIN_MS = 1_500;
 
-    /** The scrubber shows only with access, a session that can seek, and a known song length. */
+    /**
+     * With access and a session: the scrubber shows (OK on it pauses or plays) while the app plays or is paused,
+     * or can seek a song of known length. Not for a stopped or failed session that can do neither (a Bluetooth
+     * session in its error state, say).
+     */
+    static boolean showScrubber(int playbackState, long actions, long durationMs) {
+        return state(playbackState) != STOPPED || canSeek(true, actions, durationMs);
+    }
+
+    /** Left/Right on the scrubber seek only with access, a session that can seek, and a known song length. */
     static boolean canSeek(boolean access, long actions, long durationMs) {
         return access && (actions & ACTION_SEEK_TO) != 0 && durationMs > 0;
     }
@@ -119,6 +128,29 @@ final class NowPlaying {
     static int progress(long pos, long durationMs) {
         if (durationMs <= 0) return 0;
         return (int) (clamp(pos, durationMs) * 1000 / durationMs);
+    }
+
+    /** The time under the scrubber's left end: "2:21" playing, "Paused · 2:21" paused. */
+    static String elapsedLabel(long pos, boolean paused) {
+        return paused ? "Paused · " + time(pos) : time(pos);
+    }
+
+    /** The keys, under the card while the scrubber has focus. */
+    static String scrubHint(boolean paused) {
+        return (paused ? "OK play" : "OK pause") + " · ◀ ▶ 10 s · ▲ previous / next";
+    }
+
+    /** The thumb's centre for a progress of 0..1000 along a track from `left` to `right`. */
+    static float thumbX(int progress, float left, float right) {
+        int p = Math.max(0, Math.min(1000, progress));
+        return left + (right - left) * p / 1000f;
+    }
+
+    /** The seek pill's left edge: centred on the thumb, kept inside min..max. */
+    static float pillLeft(float thumbX, float width, float min, float max) {
+        float l = thumbX - width / 2;
+        if (l + width > max) l = max - width;
+        return Math.max(min, l);
     }
 
     /** "0:07", "3:25", "1:02:03". */

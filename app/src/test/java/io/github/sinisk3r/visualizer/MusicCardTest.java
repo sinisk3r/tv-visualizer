@@ -68,29 +68,39 @@ public class MusicCardTest {
     }
 
     @Test
-    public void upFromAnyBarButtonLandsOnPlayAndDownGoesBackThere() {
+    public void withoutAScrubberUpLandsOnPreviousAndDownGoesBackThere() {
         settingsButton.requestFocus();
         assertTrue(press(KeyEvent.KEYCODE_DPAD_UP));
-        assertEquals(R.id.m_play, root.findFocus().getId());
+        assertEquals(R.id.m_prev, root.findFocus().getId());
         // Without access, Down passes the "See song and album art" row first.
         assertTrue(press(KeyEvent.KEYCODE_DPAD_DOWN));
         assertEquals(R.id.m_ask, root.findFocus().getId());
+        assertTrue("Up from the ask row: Previous/Next", press(KeyEvent.KEYCODE_DPAD_UP));
+        assertEquals(R.id.m_prev, root.findFocus().getId());
+        press(KeyEvent.KEYCODE_DPAD_DOWN);
         assertTrue(press(KeyEvent.KEYCODE_DPAD_DOWN));
         assertEquals(settingsButton, root.findFocus());
     }
 
     @Test
-    public void leftAndRightStayOnTheControls() {
+    public void leftAndRightStayOnPreviousAndNext() {
         press(KeyEvent.KEYCODE_DPAD_UP);
-        press(KeyEvent.KEYCODE_DPAD_LEFT);
-        assertEquals(R.id.m_prev, root.findFocus().getId());
         assertTrue("no wrap or escape at the left end", press(KeyEvent.KEYCODE_DPAD_LEFT));
         assertEquals(R.id.m_prev, root.findFocus().getId());
         press(KeyEvent.KEYCODE_DPAD_RIGHT);
-        press(KeyEvent.KEYCODE_DPAD_RIGHT);
-        assertEquals("no mute: Next ends the controls", R.id.m_next, root.findFocus().getId());
-        assertTrue(press(KeyEvent.KEYCODE_DPAD_RIGHT));
         assertEquals(R.id.m_next, root.findFocus().getId());
+        assertTrue("no play/pause or mute: Next ends the row", press(KeyEvent.KEYCODE_DPAD_RIGHT));
+        assertEquals(R.id.m_next, root.findFocus().getId());
+        assertTrue(press(KeyEvent.KEYCODE_DPAD_UP));
+        assertEquals("Up on the top row stays", R.id.m_next, root.findFocus().getId());
+        press(KeyEvent.KEYCODE_DPAD_LEFT);
+        assertEquals(R.id.m_prev, root.findFocus().getId());
+    }
+
+    @Test
+    public void scrubberHintIsGoneWithoutTheScrubber() {
+        press(KeyEvent.KEYCODE_DPAD_UP);
+        assertEquals(View.GONE, view(R.id.m_hint).getVisibility());
     }
 
     @Test
@@ -103,7 +113,7 @@ public class MusicCardTest {
     public void hiddenCardIgnoresKeysAndIsGone() {
         card.hide();
         assertFalse(press(KeyEvent.KEYCODE_DPAD_UP));
-        assertFalse(view(R.id.m_play).isShown());
+        assertFalse(view(R.id.m_prev).isShown());
     }
 
     @Test
@@ -130,10 +140,11 @@ public class MusicCardTest {
     }
 
     @Test
-    public void withoutAccessShowsControlsAndTheAskRowButNoScrubber() {
+    public void withoutAccessShowsPreviousNextAndTheAskRowButNoScrubber() {
         ShadowLooper.idleMainLooper();
         assertEquals(View.VISIBLE, view(R.id.m_ask).getVisibility());
-        assertTrue(view(R.id.m_play).isShown());
+        assertTrue(view(R.id.m_prev).isShown());
+        assertTrue(view(R.id.m_next).isShown());
         assertEquals(View.GONE, view(R.id.m_seek).getVisibility());
         card.tick();
         assertEquals(View.GONE, view(R.id.m_seek).getVisibility());
