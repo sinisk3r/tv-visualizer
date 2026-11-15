@@ -118,7 +118,7 @@ final class PlayOrder {
     /**
      * Play order for a style under the bar's Shuffle setting. Off: library order. This set: shuffled within the
      * style (what the app always did). Everything: shuffled across every style that is on, whatever style is picked.
-     * TODO(menu phase 2): changing style with Everything asks "Shuffle this style only?" (docs/next.md B).
+     * Picking a set with Everything asks "Shuffle this one only?" (ShuffleAsk, then narrowToSet).
      */
     private List<File> ordered(String cat) {
         if (list != null) return orderedList();
@@ -208,6 +208,17 @@ final class PlayOrder {
                 }
             }
         }
+    }
+
+    /**
+     * Shuffle just switched from Everything to This set ("Shuffle this one only?"): the order becomes the current
+     * style's or list's alone. True when the current preset belongs to it and plays on (first in the new order);
+     * false when it does not, and the next step plays from the set.
+     */
+    boolean narrowToSet() {
+        File cur = current();
+        rebuild(cur == null ? null : cur.getPath());
+        return current() != null;
     }
 
     /** A held preset stays on even if a filter (heavy, deaf, a style switched off) would skip it. */

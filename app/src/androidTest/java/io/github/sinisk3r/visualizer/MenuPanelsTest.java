@@ -279,7 +279,7 @@ public class MenuPanelsTest {
             SystemClock.sleep(100);
         }
         assertEquals(first, onUi(a -> field(a, "shownPreset")));
-        assertEquals(PresetLibrary.FAVOURITES, onUi(a -> ((MainActivity) a).category()));
+        assertEquals(PresetLibrary.FAVOURITES, onUi(a -> a.category()));
     }
 
     @Test
@@ -337,6 +337,85 @@ public class MenuPanelsTest {
         while (onUi(a -> menu(a).isOpen()) && SystemClock.uptimeMillis() < until) SystemClock.sleep(200);
         assertFalse("still open after the idle wait", onUi(a -> menu(a).isOpen()));
         assertEquals(View.GONE, (int) onUi(a -> a.findViewById(R.id.menu).getVisibility()));
+    }
+
+    @Test
+    public void upWithEverythingAsksAndOkShufflesThisStyleOnly() {
+        setShuffle(Settings.SHUFFLE_ALL);
+        File was = onUi(a -> (File) field(a, "shownPreset"));
+        key(KeyEvent.KEYCODE_DPAD_UP);
+        waitTagAsks();
+        String style = onUi(a -> a.category());
+        assertNotEquals(PresetLibrary.ALL, style);
+        key(KeyEvent.KEYCODE_DPAD_CENTER);
+        assertFalse("OK answers the question, not the menu", onUi(a -> menu(a).isOpen()));
+        assertEquals(Settings.SHUFFLE_SET, (int) onUi(a -> ((Settings) field(a, "settings")).shuffle()));
+        // Next presets come from the chosen style alone.
+        for (int i = 0; i < 3; i++) {
+            File before = onUi(a -> (File) field(a, "shownPreset"));
+            key(KeyEvent.KEYCODE_DPAD_RIGHT);
+            waitPresetChange(before);
+            File now = onUi(a -> (File) field(a, "shownPreset"));
+            assertTrue(now + " is not in " + style, onUi(a -> library(a).byCategory.get(style).contains(now)));
+        }
+        assertNotNull(was);
+    }
+
+    @Test
+    public void anotherKeyKeepsShufflingEverything() {
+        setShuffle(Settings.SHUFFLE_ALL);
+        key(KeyEvent.KEYCODE_DPAD_DOWN);
+        waitTagAsks();
+        key(KeyEvent.KEYCODE_DPAD_RIGHT);
+        key(KeyEvent.KEYCODE_DPAD_CENTER);  // too late: the question is gone, OK opens the menu
+        assertTrue(onUi(a -> menu(a).isOpen()));
+        assertEquals(Settings.SHUFFLE_ALL, (int) onUi(a -> ((Settings) field(a, "settings")).shuffle()));
+    }
+
+    @Test
+    public void favouriteFromTheZeroListAsksWithEverything() {
+        setShuffle(Settings.SHUFFLE_ALL);
+        addFavourites(2);
+        key(KeyEvent.KEYCODE_0);
+        key(KeyEvent.KEYCODE_DPAD_CENTER);
+        waitTagAsks();
+        key(KeyEvent.KEYCODE_DPAD_CENTER);
+        assertFalse(onUi(a -> menu(a).isOpen()));
+        assertEquals(Settings.SHUFFLE_SET, (int) onUi(a -> ((Settings) field(a, "settings")).shuffle()));
+        assertEquals(PresetLibrary.FAVOURITES, onUi(a -> a.category()));
+    }
+
+    @Test
+    public void noQuestionWithoutEverything() {
+        key(KeyEvent.KEYCODE_DPAD_UP);  // default Shuffle: This set
+        SystemClock.sleep(1000);
+        assertNotEquals(ShuffleAsk.LINE, onUi(a -> ((TextView) a.findViewById(R.id.subtitle)).getText().toString()));
+    }
+
+    private void setShuffle(int mode) {
+        onUi(a -> {
+            ((Settings) field(a, "settings")).setShuffle(mode);
+            return null;
+        });
+    }
+
+    /** The tag shows the question (the renderer reports from the GL thread). */
+    private void waitTagAsks() {
+        long until = SystemClock.uptimeMillis() + 3_000;
+        while (SystemClock.uptimeMillis() < until && !ShuffleAsk.LINE.equals(onUi(a ->
+                ((TextView) a.findViewById(R.id.subtitle)).getText().toString()))) {
+            SystemClock.sleep(50);
+        }
+        assertEquals(ShuffleAsk.LINE, onUi(a -> ((TextView) a.findViewById(R.id.subtitle)).getText().toString()));
+        assertEquals(View.VISIBLE, (int) onUi(a -> a.findViewById(R.id.overlay).getVisibility()));
+    }
+
+    private void waitPresetChange(File was) {
+        long until = SystemClock.uptimeMillis() + 10_000;
+        while (was.equals(onUi(a -> field(a, "shownPreset"))) && SystemClock.uptimeMillis() < until) {
+            SystemClock.sleep(100);
+        }
+        assertNotEquals("the preset did not change", was, onUi(a -> field(a, "shownPreset")));
     }
 
     @Test

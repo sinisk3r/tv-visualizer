@@ -289,4 +289,46 @@ public class PlayOrderTest {
         assertEquals("b2.milk", name(o.step(1)));
         assertEquals("b3.milk", name(o.step(1)));
     }
+
+    @Test
+    public void narrowToSetPlaysOnlyTheStyleAfterEverything() {
+        lib.shuffle = Settings.SHUFFLE_ALL;
+        PlayOrder o = new PlayOrder(lib, PresetLibrary.ALL);
+        o.rebuild(null);
+        o.changeCategory(1);  // Dancer, but Everything still mixes both styles
+        assertEquals("Dancer", o.category());
+        assertEquals(6, o.size());
+        assertEquals("b3.milk", name(o.step(1)));  // from Fractal
+
+        lib.shuffle = Settings.SHUFFLE_SET;
+        assertFalse("b3 is not a Dancer preset", o.narrowToSet());
+        assertEquals(Arrays.asList("a3.milk", "a2.milk", "a1.milk"), names(o));
+    }
+
+    @Test
+    public void narrowToSetKeepsAPresetOfTheSetPlaying() {
+        lib.shuffle = Settings.SHUFFLE_ALL;
+        PlayOrder o = new PlayOrder(lib, "Dancer");
+        o.rebuild(null);
+        o.play(new File("Dancer/a2.milk"));
+        lib.shuffle = Settings.SHUFFLE_SET;
+        assertTrue(o.narrowToSet());
+        assertEquals("a2.milk", name(o.current()));
+        assertEquals(3, o.size());
+    }
+
+    @Test
+    public void narrowToSetKeepsAListToItsOwnPresets() {
+        lib.shuffle = Settings.SHUFFLE_ALL;
+        PlayOrder o = new PlayOrder(lib, PresetLibrary.ALL);
+        o.rebuild(null);
+        o.playList("Most watched", Fake.files("Fractal", "b1", "b2"), null);
+        assertEquals(6, o.size());
+        lib.shuffle = Settings.SHUFFLE_SET;
+        File cur = o.step(1);
+        assertEquals("the list picks the first preset", "b1.milk", name(cur));
+        assertTrue(o.narrowToSet());
+        assertEquals("Most watched", o.category());
+        assertEquals(2, o.size());
+    }
 }

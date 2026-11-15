@@ -120,6 +120,10 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
     private final ChannelEntry typed = new ChannelEntry();
     private static final long NUMBER_WAIT_MS = 1800;
     private final Runnable playTyped = this::playTyped;
+    /** "Shuffle this one only?" after picking a set with Shuffle on Everything (ShuffleAsk). */
+    private final ShuffleAsk shuffleAsk = new ShuffleAsk();
+    /** UI thread: a set was just picked (Up/Down, Find, the 0-list); the next preset the user asked for asks. */
+    private boolean picked;
 
     private void startVisuals(PresetLibrary library) {
         if (isDestroyed()) return;
@@ -384,6 +388,12 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
     }
 
     private boolean handleKey(int keyCode) {
+        boolean ok = keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER
+                || keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER;
+        if (shuffleAsk.key(ok, android.os.SystemClock.uptimeMillis())) {
+            shuffleThisSet();
+            return true;
+        }
         // 0 first opens the 0-list (favourites 01..., playlists 001...); a 0 inside a number (10, 205) stays a digit.
         if (keyCode == KeyEvent.KEYCODE_0 && !typed.isActive()) {
             openMenu(true);
@@ -409,10 +419,12 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
                 return true;
             case KeyEvent.KEYCODE_DPAD_UP:
             case KeyEvent.KEYCODE_CHANNEL_UP:
+                picked = true;
                 glView.queueEvent(() -> renderer.changeCategory(1));
                 return true;
             case KeyEvent.KEYCODE_DPAD_DOWN:
             case KeyEvent.KEYCODE_CHANNEL_DOWN:
+                picked = true;
                 glView.queueEvent(() -> renderer.changeCategory(-1));
                 return true;
             case KeyEvent.KEYCODE_DPAD_CENTER:
@@ -427,6 +439,12 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
             default:
                 return false;
         }
+    }
+
+    /** OK on "shuffle this one only": This set from now on, and play from the chosen style or list. */
+    private void shuffleThisSet() {
+        settings.setShuffle(Settings.SHUFFLE_SET);
+        glView.queueEvent(renderer::shuffleThisSet);
     }
 
     // --- overlay ---
@@ -449,13 +467,19 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
             shownCategory = category;
             menu.refresh();
             menu.tick();
+            long now = android.os.SystemClock.uptimeMillis();
+            if (userAction && picked) {
+                picked = false;
+                shuffleAsk.chosen(settings.shuffle(), category, now);
+            }
             if (typed.isActive()) return;  // the tag shows the number being typed
+            boolean asking = shuffleAsk.isAsking(now) && !menu.isOpen();
             title.setText(preset);
-            subtitle.setText(p == null ? category : BarText.styleLine(library.styleOf(p), library.subStyleOf(p),
-                    category, locked, settings.shuffle()));
+            subtitle.setText(asking ? ShuffleAsk.LINE : p == null ? category : BarText.styleLine(library.styleOf(p),
+                    library.subStyleOf(p), category, locked, settings.shuffle()));
             // On every change, automatic ones too ("Show what's playing"); otherwise only on key presses.
             if (!menu.isOpen() && (userAction || firstOverlay || (changed && settings.showPlaying()))) {
-                showOverlay(userAction);
+                showOverlay(userAction && !asking);
             }
             taggedPreset = p;
         });
@@ -571,12 +595,14 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
 
     @Override
     public void playList(String name, List<File> presets, File first) {
+        picked = true;
         List<File> copy = new java.util.ArrayList<>(presets);
         glView.queueEvent(() -> renderer.playList(name, copy, first));
     }
 
     @Override
     public void playCategory(String category, File first) {
+        picked = true;
         glView.queueEvent(() -> renderer.playCategory(category, first));
     }
 
