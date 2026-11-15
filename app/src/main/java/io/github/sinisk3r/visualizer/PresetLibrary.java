@@ -207,7 +207,27 @@ final class PresetLibrary {
     static String displayName(File preset) {
         String n = preset.getName();
         n = n.substring(0, n.length() - ".milk".length());
-        return n.replace('_', ' ');
+        return masked(n.replace('_', ' '));
+    }
+
+    /** Swear words in preset names (272 of the 9,795 in the full pack), masked on screen as "f**k" so the app
+     *  suits a family TV and Play's "Everyone" rating. Matched inside words too ("mindfuck"). File names stay. */
+    private static final java.util.regex.Pattern SWEARING = java.util.regex.Pattern.compile(
+            "fuck|shit|cunt|whore|slut|asshole|bitch|bastard", java.util.regex.Pattern.CASE_INSENSITIVE);
+
+    static String masked(String name) {
+        java.util.regex.Matcher m = SWEARING.matcher(name);
+        if (!m.find()) return name;
+        StringBuilder out = new StringBuilder();
+        int last = 0;
+        do {
+            String w = m.group();
+            out.append(name, last, m.start()).append(w.charAt(0));
+            for (int i = 1; i < w.length() - 1; i++) out.append('*');
+            out.append(w.charAt(w.length() - 1));
+            last = m.end();
+        } while (m.find());
+        return out.append(name.substring(last)).toString();
     }
 
     /** Play weights: strongly reactive presets come up about twice as often as most, waveform-only ones half
