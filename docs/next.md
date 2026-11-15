@@ -52,6 +52,26 @@ Later (bigger): match preset energy to the music's energy (reactivity.txt has th
 beat (tempo detection); use the media session for exact song changes and per-song memory (needs notification
 access).
 
+## F. Finding presets: numbers, search, featured (with B)
+
+User decisions, 15-Nov-2026:
+- **Channel numbers:** every preset gets a fixed number; type it on the remote (the user's TCL remote has number
+  keys) to jump there. Numbers never change: number the full pack once in a fixed order (style, sub-style, name),
+  shared by the bundle and the download; new presets get new numbers at the end. On-screen number pad as fallback
+  for remotes without number keys.
+- **Search:** both voice (remote mic, Android SpeechRecognizer) and the on-screen keyboard. Matches names and
+  authors; masked words still match.
+- **Featured:** a playlist of the best-looking, most interesting presets. All presets are rated 5/5 in the pack, so
+  curate: a heuristic shortlist (~200: strongly reactive, smooth on the TV, colourful and moving in rendered frames),
+  then the user picks ~50 from a review page of thumbnails.
+- **Random across styles:** a mode that changes style on every switch, so variety is guaranteed.
+- Also: favourites one press away, and "recently played".
+
+```
+Read CLAUDE.md and docs/next.md items B and F. Design these into the menu redesign (B) mockups first; build after
+the user picks. Numbers: tools/ script writes assets/numbers.txt (number, file name) for the full pack.
+```
+
 ## B. Late-90s player theme for the app's UI
 
 ```
@@ -81,8 +101,6 @@ licence (e.g. OFL pixel fonts), with the licence noted in README.
 - **Preset fixes upstream:** Cream of the Crop PR #7 (open) fixes expression parse errors in 67 presets. Check how
   many fail on our TV today (`preset failed` in the log), and pull the fixed files into the full pack/bundle.
 
-- **Preset browser:** the menu's way of finding presets "can be slightly better" (user feedback, 15-Nov-2026).
-  Ask what bothers them before designing.
 - **Bundle without heavy presets:** `tools/make-bundle.py` still picks heavy presets, which "Skip heavy presets"
   then hides by default (~17% of the 400). Exclude `heavy.txt` names. Note: this changes the random picks, so
   bump `versionCode`, and favourites from the old bundle may disappear for users without the full pack.
