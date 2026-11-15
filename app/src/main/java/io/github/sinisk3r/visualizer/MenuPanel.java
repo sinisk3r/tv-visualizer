@@ -29,7 +29,8 @@ import java.util.TreeMap;
  * Bar, left to right: now playing | Previous, Next, Favourite, Hold | Shuffle, Find, Search, Settings | time | Hide
  * (alone on the far right, so it is not pressed by accident). Focus starts on Favourite. A label fades in above
  * the focused button. Cards: Settings (time per preset, Smooth or Sharp with the live frame rate, then rows to
- * Live and advanced and to About and licences), Live and advanced, Find (today's style pages) and the About viewer.
+ * Live and advanced and to About and licences), Live and advanced, Find (today's style pages), Search (built by
+ * SearchPanel) and the About viewer.
  *
  * Everything is built once, except the Find rows, which are built once per Find page. Changes while the menu is
  * open (a new preset, a toggled setting, download progress, the clock) only rewrite values in place, so focus
@@ -65,9 +66,11 @@ final class MenuPanel {
         int pictureHeight();
         /** "Show what's playing" changed. */
         void displayChanged();
+        /** Plays this preset now (Search results, the number pad), like a typed channel number. */
+        void play(File preset);
     }
 
-    static final int NONE = 0, SETTINGS = 1, ADVANCED = 2, ABOUT = 3, FIND = 4;
+    static final int NONE = 0, SETTINGS = 1, ADVANCED = 2, ABOUT = 3, FIND = 4, SEARCH = 5;
     private static final long FADE_MS = 140;
 
     private final Activity act;
@@ -80,6 +83,8 @@ final class MenuPanel {
     private final ProgressBar progress;
     private final ViewGroup cardSettings, cardAdvanced, cardFind, about;
     private final LinearLayout findRows;
+    private final SearchPanel searchPanel;
+    private final View cardSearch;
 
     private Button prev, next, fav, hold, shuffle, find, search, settingsButton, hide;
     private final List<Button> buttons = new ArrayList<>();
@@ -126,6 +131,20 @@ final class MenuPanel {
         cardFind = act.findViewById(R.id.card_find);
         about = act.findViewById(R.id.about);
         findRows = act.findViewById(R.id.find_rows);
+        searchPanel = new SearchPanel(act, library, new SearchPanel.Host() {
+            @Override
+            public void play(File preset) {
+                host.play(preset);
+            }
+
+            @Override
+            public void openList(Keypad.Target target) {
+                // TODO(0-list): open Favourites / Playlists, or play favourite n / playlist n, once the 0 list
+                // (being built on its own branch) lands. Until then the target is only named.
+                toast(target.label() + ": coming with the favourites and playlists list.");
+            }
+        });
+        cardSearch = searchPanel.card();
         buildBar();
         buildSettingsCard();
         buildAdvancedCard();
@@ -146,6 +165,7 @@ final class MenuPanel {
         cardSettings.setVisibility(View.GONE);
         cardAdvanced.setVisibility(View.GONE);
         cardFind.setVisibility(View.GONE);
+        cardSearch.setVisibility(View.GONE);
         about.setVisibility(View.GONE);
         bar.setVisibility(View.VISIBLE);
         scrim.setVisibility(View.VISIBLE);
@@ -184,6 +204,9 @@ final class MenuPanel {
             case SETTINGS:
                 closePanel(settingsButton);
                 return true;
+            case SEARCH:
+                closePanel(search);
+                return true;
             default:
                 return false;
         }
@@ -194,6 +217,7 @@ final class MenuPanel {
      * whichever bar button happens to sit below. Returns true when the key was used.
      */
     boolean handleKey(KeyEvent e) {
+        if (panel == SEARCH && searchPanel.handleKey(e)) return true;
         if (e.getAction() != KeyEvent.ACTION_DOWN || e.getKeyCode() != KeyEvent.KEYCODE_DPAD_DOWN) return false;
         if (panel == NONE || panel == ABOUT) return false;
         View focused = act.getCurrentFocus();
@@ -232,10 +256,15 @@ final class MenuPanel {
         if (!TextUtils.equals(s, t.getText())) t.setText(s);
     }
 
+    /** The speech input the Search mic started has finished. */
+    void onSpeech(int resultCode, android.content.Intent data) {
+        searchPanel.onSpeech(resultCode, data);
+    }
+
     // --- panels ---
 
     private Button owner(int p) {
-        return p == FIND ? find : settingsButton;
+        return p == FIND ? find : p == SEARCH ? search : settingsButton;
     }
 
     private void showPanel(int p, View focus) {
@@ -243,6 +272,7 @@ final class MenuPanel {
         cardSettings.setVisibility(p == SETTINGS ? View.VISIBLE : View.GONE);
         cardAdvanced.setVisibility(p == ADVANCED ? View.VISIBLE : View.GONE);
         cardFind.setVisibility(p == FIND ? View.VISIBLE : View.GONE);
+        cardSearch.setVisibility(p == SEARCH ? View.VISIBLE : View.GONE);
         about.setVisibility(p == ABOUT ? View.VISIBLE : View.GONE);
         // The viewer covers the screen: the bar under it would only cost frames.
         bar.setVisibility(p == ABOUT ? View.GONE : View.VISIBLE);
@@ -251,7 +281,7 @@ final class MenuPanel {
         barHint.setVisibility(p == NONE ? View.GONE : View.VISIBLE);
         markOpen(p == NONE ? null : owner(p));
         View card = p == SETTINGS ? cardSettings : p == ADVANCED ? cardAdvanced : p == FIND ? cardFind
-                : p == ABOUT ? about : null;
+                : p == SEARCH ? cardSearch : p == ABOUT ? about : null;
         refresh();
         tick();
         if (card != null) fadeIn(card);
@@ -316,8 +346,12 @@ final class MenuPanel {
             buildFind(0);
         });
         search = addButton(row, R.id.b_search, R.drawable.ic_search, v -> {
-            // Phase 2: the four-row keyboard and voice. Until then the label says so.
-            search.tip.setText("Search: coming soon");
+            if (panel == SEARCH) {
+                closePanel(search);
+                return;
+            }
+            showPanel(SEARCH, null);
+            searchPanel.shown();
         });
         settingsButton = addButton(row, R.id.b_settings, R.drawable.ic_settings, v -> {
             if (panel == SETTINGS) closePanel(settingsButton);
@@ -347,11 +381,10 @@ final class MenuPanel {
             setIfChanged(prev.tip, "Previous");
             setIfChanged(next.tip, "Next");
             setIfChanged(find.tip, "Find: styles and favourites");
+            setIfChanged(search.tip, "Search: names and numbers");
             setIfChanged(settingsButton.tip, "Settings");
             setIfChanged(hide.tip, "Hide this preset");
         });
-        search.tip.setText("Search");
-        search.cell.setOnFocusChangeListener(tipFader(search, () -> search.tip.setText("Search")));
     }
 
     private Button addButton(ViewGroup parent, int id, int icon, View.OnClickListener click) {

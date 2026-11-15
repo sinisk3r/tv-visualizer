@@ -15,4 +15,8 @@
     <item name="fixed_size" type="id" />
     <item name="chip_smooth" type="id" />
     <item name="chip_sharp" type="id" />
+    <item name="s_mic" type="id" />
+    <item name="s_mode" type="id" />
+    <item name="s_pad_play" type="id" />
+    <item name="s_result0" type="id" />
 </resources>

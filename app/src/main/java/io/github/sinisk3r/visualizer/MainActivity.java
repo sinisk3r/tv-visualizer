@@ -463,6 +463,17 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
     }
 
     @Override
+    public void play(File preset) {
+        glView.queueEvent(() -> renderer.play(preset));
+    }
+
+    @Override
+    protected void onActivityResult(int code, int result, android.content.Intent data) {
+        super.onActivityResult(code, result, data);
+        if (code == SearchPanel.REQ_SPEECH && menu != null) menu.onSpeech(result, data);
+    }
+
+    @Override
     public void step(int delta) {
         glView.queueEvent(() -> renderer.step(delta, true, true));
     }

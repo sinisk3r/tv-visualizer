@@ -90,16 +90,17 @@ final class SearchIndex {
         String q = normalize(query);
         if (q.isEmpty()) return Collections.emptyList();
         String[] words = q.split(" ");
+        String[] starting = new String[words.length];
+        for (int i = 0; i < words.length; i++) starting[i] = " " + words[i];
         List<Entry> starts = new ArrayList<>(), inside = new ArrayList<>();
         for (Entry e : entries) {
             boolean all = true, atStart = true;
-            for (String w : words) {
-                int at = e.text.indexOf(w);
-                if (at < 0) {
+            for (int i = 0; i < words.length; i++) {
+                if (e.text.indexOf(words[i]) < 0) {
                     all = false;
                     break;
                 }
-                if (!e.text.contains(" " + w)) atStart = false;
+                if (atStart && e.text.indexOf(starting[i]) < 0) atStart = false;
             }
             if (all) (atStart ? starts : inside).add(e);
         }
