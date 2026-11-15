@@ -11,6 +11,7 @@ features, build and licences; this file covers how to work on it. Keep it under 
   - `MenuPanel`: the OK menu: transport bar + cards; `SearchPanel`, `FindPanel` (lists, preview), `ZeroPanel`
     (0 pressed). Rows built once; `refresh()`/`tick()` only rewrite values. Logic in tested plain classes
     (`BarText`, `SearchIndex`, `Keypad`, `ZeroEntry`, `SmartLists`, `WatchHistory`).
+  - `MusicCard` (other apps' music, above the bar; logic `NowPlaying`; empty `MusicListener` = notification access).
   - `PresetLibrary` (scan, styles, sub-styles), `PackDownloader` (full pack), `Settings` (prefs), `Native` (JNI).
 - `app/src/main/cpp/native.cpp`: one global projectM instance; callbacks return as bit flags from `render()`.
 - `tools/`: `fetch-packs.sh`, `make-bundle.py` (bundled presets), `make-heavy-list.py` (assets/heavy.txt),
