@@ -255,6 +255,9 @@ safety form and privacy policy).
   hardware (CPU and GPU are logged at start as `device ...` and in the projectM line).
 
 ## Done
+- 15-Nov-2026: "Play demo songs" in Live and advanced: four Kevin MacLeod tracks (CC BY 4.0, credited in About and
+  on screen) streamed from incompetech.com, nothing shipped. Test hook `--ez demo true` for TV runs without a
+  music app; the same MP3s are in `third_party/test-audio/` (gitignored) for the Mac harness.
 - 15-Nov-2026: song and drop detection moved into `song_detector.h` with a host C++ test (7 cases), run in CI.
 - 15-Nov-2026: play order moved out of VizRenderer into `PlayOrder` (filters, shuffle modes, held preset, `play()`
   slotting, drop), 11 tests incl. the weighted shuffle; checked on the TV (Next, Back, style change).

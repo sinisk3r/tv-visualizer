@@ -11,3 +11,4 @@ art/icon-*.png
 third_party/.projectm-patch.lock
 tools/mac-render/build/
 third_party/thumbs/
+third_party/test-audio/

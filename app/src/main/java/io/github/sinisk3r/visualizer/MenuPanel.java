@@ -65,6 +65,10 @@ final class MenuPanel {
         int pictureHeight();
         /** "Show what's playing" changed. */
         void displayChanged();
+        /** The demo song playing now, or null when demo songs are off. */
+        String demoSong();
+        /** Starts or stops the demo songs. */
+        void toggleDemo();
     }
 
     static final int NONE = 0, SETTINGS = 1, ADVANCED = 2, ABOUT = 3, FIND = 4;
@@ -609,6 +613,13 @@ final class MenuPanel {
             host.resolutionChanged();
             refresh();
         });
+        valueRow(adv, View.NO_ID, "Play demo songs", () -> {
+            String song = host.demoSong();
+            return song == null ? "Off" : song;
+        }, v -> {
+            host.toggleDemo();
+            refresh();
+        });
         toggle(adv, "Show what's playing", settings::showPlaying, on -> {
             settings.setShowPlaying(on);
             host.displayChanged();
@@ -766,6 +777,7 @@ final class MenuPanel {
         aboutLine(a, "Preset authors", "Named in each preset's title");
         aboutLine(a, "Textures", "MilkDrop texture pack");
         aboutLine(a, "App icon", "AI-generated");
+        aboutLine(a, "Demo songs", DemoSongs.CREDIT);
         a.addView(header("Privacy"));
         aboutLine(a, "Audio", "Only used to draw frames; never recorded, stored or sent");
     }

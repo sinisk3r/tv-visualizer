@@ -119,6 +119,8 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
         testRun = testPreset != null;
         // --ei height: 0 Smooth, 1 Sharp, else a fixed height (this run only).
         if (getIntent().hasExtra("height")) settings.overrideHeight(getIntent().getIntExtra("height", 0));
+        // Test hook: play the demo songs (tests without a music app: am start ... --ez demo true).
+        if (getIntent().getBooleanExtra("demo", false)) ui.postDelayed(demo::start, 1000);
         renderer = new VizRenderer(library, settings, library.textureSearchPath(this), this,
                 prefs.getString("category", PresetLibrary.ALL),
                 testPreset != null ? testPreset : prefs.getString("preset", null),
@@ -213,6 +215,7 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
     @Override
     protected void onPause() {
         isResumedNow = false;
+        if (demo.isOn()) demo.stop();
         stopAudio();
         if (glView != null) glView.onPause();
         super.onPause();
@@ -516,6 +519,37 @@ public class MainActivity extends Activity implements VizRenderer.Listener, Menu
     }
 
     private volatile String packStatus;
+
+    // --- demo songs ---
+
+    private final DemoPlayer demo = new DemoPlayer((index, error) -> {
+        if (error != null) showNote(error, "");
+        else if (index >= 0) showNote("Demo: " + DemoSongs.title(index), DemoSongs.CREDIT);
+        if (menu != null) menu.refresh();
+    });
+
+    @Override
+    public String demoSong() {
+        return demo.isOn() ? (demo.index() >= 0 ? DemoSongs.title(demo.index()) : "Starting…") : null;
+    }
+
+    @Override
+    public void toggleDemo() {
+        if (demo.isOn()) demo.stop();
+        else demo.start();
+    }
+
+    /** A short note in the overlay, hidden after the usual 4 s. */
+    private void showNote(String line1, String line2) {
+        title.setText(line1);
+        subtitle.setText(line2);
+        hint.setVisibility(View.GONE);
+        overlay.animate().cancel();
+        overlay.setVisibility(View.VISIBLE);
+        overlay.setAlpha(1f);
+        ui.removeCallbacks(hideOverlay);
+        ui.postDelayed(hideOverlay, OVERLAY_MS);
+    }
 
     @Override
     public String packStatus() {
