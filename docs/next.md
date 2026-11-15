@@ -158,13 +158,12 @@ safety form and privacy policy).
 - **Preset fixes upstream:** Cream of the Crop PR #7 (open) fixes expression parse errors in 67 presets. Check how
   many fail on our TV today (`preset failed` in the log), and pull the fixed files into the full pack/bundle.
 
-- **Bundle without heavy presets:** `tools/make-bundle.py` still picks heavy presets, which "Skip heavy presets"
-  then hides by default (~17% of the 400). Exclude `heavy.txt` names. Note: this changes the random picks, so
-  bump `versionCode`, and favourites from the old bundle may disappear for users without the full pack.
 - **Skip heavy on fast devices:** after A2, decide whether "Skip heavy presets" should default off on strong
   hardware (CPU and GPU are logged at start as `device ...` and in the projectM line).
 
 ## Done
+- 15-Nov-2026: bundle swaps its 22 deaf picks (hidden by default) for reacting ones from the same style; the
+  other 378 stay, so favourites survive. None of the 6 heavy presets were in it. versionCode 4.
 - 15-Nov-2026: even 30 fps pacing for presets that settle at 31-46 fps; Smooth steps down below 55 fps.
   CPU performance hints tried, no gain (`3290c83`).
 - 15-Nov-2026: shapes after the backport: patch 0002 batches non-additive borders (phlegmployant 12 to 28 fps,

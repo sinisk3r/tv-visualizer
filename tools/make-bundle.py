@@ -3,7 +3,9 @@
 
 Takes N presets per category from Cream of the Crop (fixed seed, so a rebuild picks the same ones) and the
 MilkDrop texture pack, and writes them to app/src/main/assets/. Presets listed in tools/skip.txt (ones that
-fail or crawl on a test TV) are left out. Run tools/fetch-packs.sh first.
+fail or crawl on a test TV) are left out. Picks that the app skips by default (heavy: assets/heavy.txt; deaf:
+level 0 in assets/reactivity.txt) are swapped for others from the same style, keeping every other pick as it
+was, so favourites from older bundles stay. Run tools/fetch-packs.sh first.
 """
 import random, shutil, sys
 from pathlib import Path
@@ -20,11 +22,19 @@ skip = {l.strip() for l in skip_file.read_text().splitlines()
 
 shutil.rmtree(OUT / "presets", ignore_errors=True)
 shutil.rmtree(OUT / "textures", ignore_errors=True)
+assets = ROOT / "app/src/main/assets"
+heavy = {l.split("\t")[1] for l in (assets / "heavy.txt").read_text().splitlines() if "\t" in l}
+deaf = {l.split("\t")[2] for l in (assets / "reactivity.txt").read_text().splitlines() if l.startswith("0\t")}
+hidden_by_default = heavy | deaf
 rng = random.Random(4)
 total = 0
 for cat in sorted(p for p in SRC.iterdir() if p.is_dir() and not p.name.startswith(("!", "."))):
     files = sorted(f for f in cat.rglob("*.milk") if f.name not in skip)
     pick = rng.sample(files, min(PER_CATEGORY, len(files)))
+    spare = [f for f in files if f not in pick and f.name not in hidden_by_default]
+    swap = random.Random(cat.name)  # its own seed: the main sample above stays as it was
+    swap.shuffle(spare)
+    pick = [f if f.name not in hidden_by_default else (spare.pop() if spare else f) for f in pick]
     for f in pick:
         dest = OUT / "presets" / f.relative_to(SRC)  # keeps Style/Sub-style/
         dest.parent.mkdir(parents=True, exist_ok=True)

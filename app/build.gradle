@@ -11,7 +11,7 @@ android {
         applicationId 'io.github.sinisk3r.visualizer'
         minSdk 26
         targetSdk 34
-        versionCode 3
+        versionCode 4
         versionName '0.2'
         ndk {
             // The TCL G08 runs a 32-bit userspace. arm64 is here so the same APK runs on newer TVs.
