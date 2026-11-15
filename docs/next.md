@@ -111,8 +111,14 @@ browser (find) panel needs work. User decisions:
   user's 1xx, which clashes with presets 100-199; in mockup A2, awaiting the user). Presets keep 1-9,791.
 - **Picture:** only Smooth or Sharp in the main settings; fixed 480p-1080p only under Advanced (a fixed size
   forces a worse picture on most presets).
-- **Detailed settings page** reached from the bar, holding About and every switch: Switch on big beats, Skip
-  heavy presets, Skip deaf presets, Time per preset, Picture (chips: Smooth, Sharp, fixed sizes).
+- **Settings (15-Nov-2026):** a small card from the bottom, focus on Playback: time per preset, Picture as
+  Smooth or Sharp with the live fps and size. Two rows open the rest: **Live and advanced** (big beats, song
+  change, skip heavy, skip deaf, unhide all, get all, fixed picture size, re-test sizes, show frame rate) and
+  **About and licences** (its own viewer).
+- **Preview pictures:** lists show a picture of the focused preset beside the rows. Source: a frame the TV saves
+  when a preset plays (glReadPixels at ~10 s, small JPEG in app storage), so favourites and recent always have
+  one; shipped thumbnails for the rest (bundle: ~400 x ~10 KB; full pack: with the download), rendered off the
+  TV by the Mac harness (to build; also scores Featured candidates).
 - No Winamp name, logo or skins and no MilkDrop branding. The menu stays grey.
 
 ```
